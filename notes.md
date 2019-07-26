@@ -1,0 +1,60 @@
+**URL**: [/users/gillchristian/gists](https://api.github.com/users/gillchristian/gists)
+
+**Headers** (pagination):
+```
+Link: <https://api.github.com/user/8309423/gists?page=2>; rel="next", <https://api.github.com/user/8309423/gists?page=2>; rel="last"
+```
+
+**Body**:
+
+```json
+{
+  "id": "b731348066aee283f864d6541ee5083c",
+  "description": "",
+  "html_url": "https://gist.github.com/b731348066aee283f864d6541ee5083c",
+  "files": {
+    "for-vs-reduce.diff": {
+      "filename": "for-vs-reduce.diff",
+      "type": "text/plain",
+      "language": "Diff",
+      "raw_url": "https://gist.githubusercontent.com/gillchristian/b731348066aee283f864d6541ee5083c/raw/62f2170913f6600b945b893a5e38173f4913a380/for-vs-reduce.diff",
+      "size": 150
+    }
+  },
+  "public": true,
+  "created_at": "2019-02-22T22:05:30Z",
+  "updated_at": "2019-03-06T10:56:12Z",
+  "owner": {
+    "id": 8309423,
+    "login": "gillchristian",
+    "html_url": "https://github.com/gillchristian",
+    "avatar_url": "https://avatars2.githubusercontent.com/u/8309423?v=4",
+    // -----
+    "gravatar_id": "",
+    "node_id": "MDQ6VXNlcjgzMDk0MjM=",
+    "url": "https://api.github.com/users/gillchristian",
+    "followers_url": "https://api.github.com/users/gillchristian/followers",
+    "following_url": "https://api.github.com/users/gillchristian/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gillchristian/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gillchristian/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gillchristian/subscriptions",
+    "organizations_url": "https://api.github.com/users/gillchristian/orgs",
+    "repos_url": "https://api.github.com/users/gillchristian/repos",
+    "events_url": "https://api.github.com/users/gillchristian/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gillchristian/received_events",
+    "type": "User",
+    "site_admin": false
+  },
+  // -----
+  "url": "https://api.github.com/gists/b731348066aee283f864d6541ee5083c",
+  "forks_url": "https://api.github.com/gists/b731348066aee283f864d6541ee5083c/forks",
+  "commits_url": "https://api.github.com/gists/b731348066aee283f864d6541ee5083c/commits",
+  "node_id": "MDQ6R2lzdGI3MzEzNDgwNjZhZWUyODNmODY0ZDY1NDFlZTUwODNj",
+  "git_pull_url": "https://gist.github.com/b731348066aee283f864d6541ee5083c.git",
+  "git_push_url": "https://gist.github.com/b731348066aee283f864d6541ee5083c.git",
+  "comments": 0,
+  "user": null,
+  "comments_url": "https://api.github.com/gists/b731348066aee283f864d6541ee5083c/comments",
+  "truncated": false
+}
+```

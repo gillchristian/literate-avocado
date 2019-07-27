@@ -2,7 +2,11 @@
 
 **Headers** (pagination):
 ```
+-- when there's next
 Link: <https://api.github.com/user/8309423/gists?page=2>; rel="next", <https://api.github.com/user/8309423/gists?page=2>; rel="last"
+
+-- when there isn't next
+Link: <https://api.github.com/user/8309423/gists?page=1>; rel="prev", <https://api.github.com/user/8309423/gists?page=1>; rel="first"
 ```
 
 **Body**:

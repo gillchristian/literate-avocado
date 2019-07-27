@@ -2,13 +2,16 @@ module Main exposing (Model, Msg(..), User, init, main, update, view)
 
 import Browser
 import Dict as Dict exposing (Dict)
-import Html exposing (Html, a, div, h1, img, span, text)
-import Html.Attributes exposing (href, src)
+import Html exposing (Html, a, button, div, h1, input, span, text)
+import Html.Attributes exposing (class, href, src, target, title, value)
+import Html.Events exposing (onClick, onInput)
 import Http exposing (Error(..))
 import Json.Decode as D
 import List as List
+import Maybe as Maybe
 import RemoteData exposing (RemoteData(..), WebData)
 import String as String
+import Tuple exposing (second)
 
 
 
@@ -31,7 +34,7 @@ type alias File =
 
 type alias Gist =
     { id : String
-    , description : String
+    , description : Maybe String
     , html_url : String
     , files : Dict String File
     , public : Bool
@@ -41,21 +44,44 @@ type alias Gist =
     }
 
 
+type Display
+    = Grid
+    | List
+
+
 type alias Model =
-    { gists : WebData (List Gist) }
+    { gists : WebData (List Gist)
+    , display : Display
+    , username : String
+    , search : String
+    }
 
 
-getGists : Cmd Msg
-getGists =
+getGists : String -> Cmd Msg
+getGists username =
     Http.get
-        { url = "https://api.github.com/users/gillchristian/gists"
-        , expect = Http.expectJson (RemoteData.fromResult >> GotText) (D.list gistDecoder)
+        { url = "https://api.github.com/users/" ++ username ++ "/gists"
+        , expect = Http.expectJson (RemoteData.fromResult >> GotGists) (D.list gistDecoder)
         }
+
+
+
+-- TODO: load user from localStorage
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { gists = Loading }, getGists )
+    let
+        username =
+            "gillchristian"
+    in
+    ( { gists = Loading
+      , display = List
+      , username = username
+      , search = ""
+      }
+    , getGists username
+    )
 
 
 
@@ -66,7 +92,7 @@ gistDecoder : D.Decoder Gist
 gistDecoder =
     D.map8 Gist
         (D.field "id" D.string)
-        (D.field "description" D.string)
+        (D.field "description" <| D.nullable D.string)
         (D.field "html_url" D.string)
         (D.field "files" <| D.dict fileDecoder)
         (D.field "public" D.bool)
@@ -96,14 +122,28 @@ fileDecoder =
 
 
 type Msg
-    = GotText (WebData (List Gist))
+    = GotGists (WebData (List Gist))
+    | ChangeDisplay Display
+    | ChangeSearch String
+    | SearchGists
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotText res ->
-            ( { gists = res }, Cmd.none )
+        GotGists gists ->
+            ( { model | gists = gists, search = "" }, Cmd.none )
+
+        ChangeDisplay display ->
+            ( { model | display = display }, Cmd.none )
+
+        ChangeSearch name ->
+            ( { model | search = name }, Cmd.none )
+
+        SearchGists ->
+            ( { model | gists = Loading, username = model.search }
+            , getGists model.search
+            )
 
 
 
@@ -111,27 +151,41 @@ update msg model =
 
 
 view : Model -> Html Msg
-view { gists } =
-    div []
-        [ img [ src "/logo.svg" ] []
-        , h1 [] [ text "Your Elm App is working!" ]
-        , case gists of
-            NotAsked ->
-                div [] [ text "NotAsked" ]
-
-            Loading ->
-                div [] [ text "Loading" ]
-
-            Success gs ->
-                div [] (List.map gistView gs)
-
-            Failure err ->
-                div [] [ errorView err ]
+view { display, gists, username, search } =
+    div [ class "content" ]
+        [ h1 [] [ text <| username ++ " gists" ]
+        , renderToggleDisplayBtn display
+        , div []
+            [ input [ onInput ChangeSearch, value search ] []
+            , button [ onClick SearchGists ] [ text "Search" ]
+            ]
+        , renderGists display gists
         ]
 
 
-errorView : Http.Error -> Html Msg
-errorView err =
+renderToggleDisplayBtn : Display -> Html Msg
+renderToggleDisplayBtn display =
+    button
+        [ onClick <|
+            case display of
+                Grid ->
+                    ChangeDisplay List
+
+                List ->
+                    ChangeDisplay Grid
+        ]
+        [ text <|
+            case display of
+                Grid ->
+                    "☷"
+
+                List ->
+                    "☰"
+        ]
+
+
+renderError : Http.Error -> Html Msg
+renderError err =
     case err of
         BadUrl str ->
             text str
@@ -149,22 +203,62 @@ errorView err =
             text <| "BadBody: " ++ msg
 
 
-gistView : Gist -> Html Msg
-gistView { id, html_url, owner, files } =
-    div []
-        [ div []
-            [ a
-                [ href <| "https://gist.github.com/" ++ owner.login ]
-                [ text owner.login ]
-            , span [] [ text " / " ]
-            , a [ href html_url ] [ text id ]
-            ]
-        , div [] <| List.map fileView <| Dict.toList files
+renderGists : Display -> WebData (List Gist) -> Html Msg
+renderGists display gists =
+    let
+        cx =
+            case display of
+                Grid ->
+                    "gists gists-grid"
+
+                List ->
+                    "gists gists-list"
+    in
+    case gists of
+        Success gs ->
+            div
+                [ class cx ]
+                (List.map (renderGist display) gs)
+
+        Failure err ->
+            div [] [ renderError err ]
+
+        _ ->
+            div [] [ text "..." ]
+
+
+renderGist : Display -> Gist -> Html Msg
+renderGist display { id, html_url, owner, files } =
+    let
+        filesLs =
+            Dict.toList files
+
+        gistName =
+            Maybe.withDefault id <|
+                Maybe.map (.filename << second) <|
+                    List.head filesLs
+
+        cx =
+            case display of
+                Grid ->
+                    "gist-item gist-item-grid"
+
+                List ->
+                    "gist-item gist-item-list"
+    in
+    div [ class <| cx ]
+        [ a
+            [ href html_url, target "_blank", title gistName ]
+            [ text <| "/" ++ gistName ]
+
+        -- TODO: render files if there are more than one
+        -- TODO: make it toggleable
+        -- , div [] <| List.map renderFile filesLs
         ]
 
 
-fileView : ( String, File ) -> Html Msg
-fileView ( name, _ ) =
+renderFile : ( String, File ) -> Html Msg
+renderFile ( name, _ ) =
     div [] [ text name ]
 
 

@@ -1,10 +1,12 @@
 module Main exposing (Model, Msg(..), User, init, main, update, view)
 
 import Browser
+import Cx
 import Dict as Dict exposing (Dict)
-import Html exposing (Html, a, button, div, h1, input, span, text)
-import Html.Attributes exposing (class, href, src, target, title, value)
-import Html.Events exposing (onClick, onInput)
+import Html
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (href, src, target, title, type_, value)
+import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
 import List as List
@@ -49,10 +51,19 @@ type Display
     | List
 
 
+
+-- TODO: load user from localStorage (mvp)
+-- TODO: modal with config: secret (mvp)
+-- TODO: parse headers with next & fetch all pages (mvp)
+-- TODO: keep searched users in "tabs" ?
+-- TODO: keep "current" user in path ?
+
+
 type alias Model =
     { gists : WebData (List Gist)
     , display : Display
-    , username : String
+    , showFiles : Bool
+    , username : String -- Maybe String
     , search : String
     }
 
@@ -65,10 +76,6 @@ getGists username =
         }
 
 
-
--- TODO: load user from localStorage
-
-
 init : ( Model, Cmd Msg )
 init =
     let
@@ -76,7 +83,8 @@ init =
             "gillchristian"
     in
     ( { gists = Loading
-      , display = List
+      , display = Grid
+      , showFiles = False
       , username = username
       , search = ""
       }
@@ -126,6 +134,7 @@ type Msg
     | ChangeDisplay Display
     | ChangeSearch String
     | SearchGists
+    | ToggleFiles
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -145,21 +154,35 @@ update msg model =
             , getGists model.search
             )
 
+        ToggleFiles ->
+            ( { model | showFiles = not model.showFiles }
+            , Cmd.none
+            )
+
 
 
 ---- VIEW ----
 
 
 view : Model -> Html Msg
-view { display, gists, username, search } =
-    div [ class "content" ]
-        [ h1 [] [ text <| username ++ " gists" ]
-        , renderToggleDisplayBtn display
-        , div []
-            [ input [ onInput ChangeSearch, value search ] []
-            , button [ onClick SearchGists ] [ text "Search" ]
+view model =
+    div [ Cx.content ]
+        [ Cx.global
+        , renderControls model
+        , h1 [] [ text <| model.username ++ " gists" ]
+        , renderGists model
+        ]
+
+
+renderControls : Model -> Html Msg
+renderControls { display, showFiles, search } =
+    div [ Cx.search ]
+        [ form [ onSubmit SearchGists ]
+            [ input [ Cx.searchInput, onInput ChangeSearch, value search ] []
+            , button [ Cx.searchBtn, type_ "submit" ] [ text "Search" ]
             ]
-        , renderGists display gists
+        , renderToggleDisplayBtn display
+        , renderToggleFiles showFiles
         ]
 
 
@@ -184,6 +207,19 @@ renderToggleDisplayBtn display =
         ]
 
 
+renderToggleFiles : Bool -> Html Msg
+renderToggleFiles showFiles =
+    let
+        label =
+            if showFiles then
+                "Hide additional files"
+
+            else
+                "Show additional files"
+    in
+    button [ onClick ToggleFiles ] [ text label ]
+
+
 renderError : Http.Error -> Html Msg
 renderError err =
     case err of
@@ -191,10 +227,15 @@ renderError err =
             text str
 
         Timeout ->
-            text "Timeout"
+            div []
+                [ p [] [ text "Request timed out." ]
+                ]
 
         NetworkError ->
-            text "NetworkError"
+            div []
+                [ p [] [ text "Looks like you are offline." ]
+                , p [] [ text "Check your connection and try again." ]
+                ]
 
         BadStatus code ->
             text <| "Status:" ++ String.fromInt code
@@ -203,62 +244,76 @@ renderError err =
             text <| "BadBody: " ++ msg
 
 
-renderGists : Display -> WebData (List Gist) -> Html Msg
-renderGists display gists =
+renderGists : Model -> Html Msg
+renderGists { display, showFiles, gists } =
     let
-        cx =
+        styles =
             case display of
                 Grid ->
-                    "gists gists-grid"
+                    Cx.gists Cx.gistsGird
 
                 List ->
-                    "gists gists-list"
+                    Cx.gists Cx.gistsList
     in
     case gists of
         Success gs ->
             div
-                [ class cx ]
-                (List.map (renderGist display) gs)
+                [ styles ]
+                (List.map (renderGist display showFiles) gs)
 
         Failure err ->
             div [] [ renderError err ]
 
         _ ->
+            -- TODO: spinner / animation ?
             div [] [ text "..." ]
 
 
-renderGist : Display -> Gist -> Html Msg
-renderGist display { id, html_url, owner, files } =
+renderGist : Display -> Bool -> Gist -> Html Msg
+renderGist display showFiles { id, html_url, owner, files } =
     let
         filesLs =
             Dict.toList files
 
+        -- `gistName` is also the name of the first file (unless there's none)
         gistName =
             Maybe.withDefault id <|
                 Maybe.map (.filename << second) <|
                     List.head filesLs
 
-        cx =
+        styles =
             case display of
                 Grid ->
-                    "gist-item gist-item-grid"
+                    Cx.gistItem Cx.gistItemGrid
 
                 List ->
-                    "gist-item gist-item-list"
-    in
-    div [ class <| cx ]
-        [ a
-            [ href html_url, target "_blank", title gistName ]
-            [ text <| "/" ++ gistName ]
+                    Cx.gistItem Cx.gistItemList
 
-        -- TODO: render files if there are more than one
-        -- TODO: make it toggleable
-        -- , div [] <| List.map renderFile filesLs
+        fsHtml =
+            if showFiles then
+                List.map renderFile <| Maybe.withDefault [] <| List.tail filesLs
+
+            else
+                []
+
+        fs =
+            div [] fsHtml
+    in
+    div [ styles ]
+        [ a
+            [ Cx.gistItemLink
+            , href html_url
+            , target "_blank"
+            , title gistName
+            ]
+            [ text <| "/" ++ gistName ]
+        , fs
         ]
 
 
 renderFile : ( String, File ) -> Html Msg
 renderFile ( name, _ ) =
+    -- TODO: add styles
     div [] [ text name ]
 
 
@@ -269,7 +324,7 @@ renderFile ( name, _ ) =
 main : Program () Model Msg
 main =
     Browser.element
-        { view = view
+        { view = view >> toUnstyled
         , init = \_ -> init
         , update = update
         , subscriptions = always Sub.none

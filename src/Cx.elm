@@ -49,7 +49,7 @@ gistsList =
 
 gistItem : Style -> Html.Styled.Attribute msg
 gistItem modifier =
-    css [ display block, fontSize <| px 13, modifier ]
+    css [ fontSize <| px 13, modifier ]
 
 
 gistItemGrid : Style

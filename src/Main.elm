@@ -353,7 +353,7 @@ renderGists { display, showFiles, gists } =
 
 
 renderGist : Display -> Bool -> Gist -> Html Msg
-renderGist display showFiles { id, html_url, owner, files } =
+renderGist display showFiles { id, html_url, owner, files, public } =
     let
         filesLs =
             Dict.values files
@@ -372,10 +372,21 @@ renderGist display showFiles { id, html_url, owner, files } =
 
         fsHtml =
             if showFiles then
-                List.map renderFile <| Maybe.withDefault [] <| List.tail filesLs
+                div []
+                    << List.map renderFile
+                    << Maybe.withDefault []
+                <|
+                    List.tail filesLs
 
             else
-                []
+                text ""
+
+        privateLabel =
+            if public then
+                text ""
+
+            else
+                span [] [ text " *" ]
     in
     div [ styles ]
         [ a
@@ -384,8 +395,9 @@ renderGist display showFiles { id, html_url, owner, files } =
             , target "_blank"
             , title gistName
             ]
-            [ text <| "/" ++ gistName ]
-        , div [] fsHtml
+            -- TODO: show a lable similar to GitHub's (solve problem with layout)
+            [ text <| "/" ++ gistName, privateLabel ]
+        , fsHtml
         ]
 
 

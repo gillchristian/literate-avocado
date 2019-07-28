@@ -1,5 +1,8 @@
 module Cx exposing
-    ( content
+    ( body
+    , content
+    , elmHot
+    , empty
     , gistItem
     , gistItemGrid
     , gistItemLink
@@ -8,13 +11,20 @@ module Cx exposing
     , gistsGird
     , gistsList
     , global
+    , input
+    , inputAndBtn
+    , menuToggle
     , search
     , searchBtn
     , searchInput
+    , sidebar
+    , sidebarBackdrop
+    , sidebarOpen
     )
 
 import Css exposing (..)
 import Css.Global as G
+import Css.Transitions as Ts
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css)
 
@@ -89,6 +99,66 @@ searchInput =
 searchBtn : Html.Styled.Attribute msg
 searchBtn =
     css []
+
+
+sidebar : Style -> Html.Styled.Attribute msg
+sidebar modifier =
+    css
+        [ position fixed
+        , width <| px 500
+        , height <| vh 100
+        , maxHeight <| vh 100
+        , left zero
+        , top zero
+        , outline none
+        , overflowX hidden
+        , overflowY auto
+        , padding2 zero (px 15)
+        , position fixed
+        , transform <| translateX <| pct -100
+        , Ts.transition <|
+            [ Ts.transform3 233.0 0 <| Ts.cubicBezier 0 0 0.21 1.0 ]
+        , zIndex <| int 2000
+        , backgroundColor <| rgb 255 255 255
+        , modifier
+        ]
+
+
+sidebarOpen : Style
+sidebarOpen =
+    batch [ transform <| translateX zero ]
+
+
+sidebarBackdrop : Html.Styled.Attribute msg
+sidebarBackdrop =
+    css
+        [ position fixed
+        , top zero
+        , left zero
+        , width <| vw 100
+        , height <| vh 100
+
+        -- TODO: add transition to the color
+        , backgroundColor <| rgba 0 0 0 0.5
+        , zIndex <| int 1000
+        ]
+
+
+menuToggle : Html.Styled.Attribute msg
+menuToggle =
+    css
+        [ position fixed
+        , right <| px 10
+        , top <| px 10
+        , cursor pointer
+        , fontSize <| px 26
+        , zIndex <| int 2000
+        ]
+
+
+empty : Style
+empty =
+    batch []
 
 
 

@@ -5,7 +5,7 @@ import Cx
 import Dict as Dict exposing (Dict)
 import Html
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (href, placeholder, src, target, title, type_, value)
+import Html.Styled.Attributes exposing (href, src, target, title, type_, value)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
@@ -54,6 +54,11 @@ type Display
     | List
 
 
+type Visible
+    = Show
+    | Hide
+
+
 
 -- TODO: load user from localStorage (mvp)
 -- TODO: modal with config: secret (mvp)
@@ -75,6 +80,7 @@ type alias Model =
     , username : Maybe String
     , token : Maybe String
     , search : String
+    , sidebar : Visible
     }
 
 
@@ -104,6 +110,7 @@ init =
       , username = Nothing
       , token = Nothing
       , search = ""
+      , sidebar = Hide
       }
     , doLoadFromStorage ()
     )
@@ -180,6 +187,7 @@ type Msg
     | SearchGists
     | ToggleFiles
     | LoadFromStorage PersistedConfig
+    | ToggleSidebar
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -213,9 +221,10 @@ update msg model =
             )
 
         ToggleFiles ->
-            ( { model | showFiles = not model.showFiles }
-            , Cmd.none
-            )
+            ( { model | showFiles = not model.showFiles }, Cmd.none )
+
+        ToggleSidebar ->
+            ( { model | sidebar = showHide Hide Show model.sidebar }, Cmd.none )
 
         LoadFromStorage { username, token } ->
             ( { model
@@ -231,6 +240,16 @@ update msg model =
 ---- VIEW ----
 
 
+showHide : a -> a -> Visible -> a
+showHide onShow onHide x =
+    case x of
+        Show ->
+            onShow
+
+        Hide ->
+            onHide
+
+
 view : Model -> Html Msg
 view model =
     div [ Cx.content ]
@@ -238,7 +257,38 @@ view model =
         , renderControls model
         , renderTitle model.username
         , renderGists model
+        , div [ Cx.menuToggle, onClick ToggleSidebar ] [ text "☰" ]
+        , sidebar model.sidebar <| renderSidebarControls model
+        , showHide
+            (div [ Cx.sidebarBackdrop, onClick ToggleSidebar ] [])
+            (text "")
+            model.sidebar
         ]
+
+
+renderSidebarControls : Model -> Html Msg
+renderSidebarControls model =
+    div []
+        [ p [] [ text "GitHub Gist Token" ]
+
+        -- TODO: hide token after save (allow to modify / clear)
+        , input
+            [ Cx.searchInput
+            , onInput ChangeToken
+            , value <| Maybe.withDefault "" model.token
+            ]
+            []
+        , button
+            [ Cx.searchBtn, type_ "button", onClick ClearToken ]
+            [ text "Clear" ]
+        ]
+
+
+sidebar : Visible -> Html Msg -> Html Msg
+sidebar visible content =
+    div
+        [ Cx.sidebar <| showHide Cx.sidebarOpen Cx.empty visible ]
+        [ showHide content (text "") visible ]
 
 
 renderTitle : Maybe String -> Html Msg
@@ -261,18 +311,10 @@ renderControls { display, showFiles, search, token } =
     div [ Cx.search ]
         [ form [ onSubmit SearchGists ]
             [ input [ Cx.searchInput, onInput ChangeSearch, value search ] []
-            , input
-                [ Cx.searchInput
-                , placeholder "GitHub gist token"
-                , onInput ChangeToken
-                , value <| Maybe.withDefault "" token
-                ]
-                []
             , button [ Cx.searchBtn, type_ "submit" ] [ text "Search" ]
             ]
         , renderToggleDisplayBtn display
         , renderToggleFiles showFiles
-        , button [ Cx.searchBtn, type_ "button", onClick ClearToken ] [ text "Clear token" ]
         ]
 
 

@@ -5,7 +5,7 @@ import Cx
 import Dict as Dict exposing (Dict)
 import Html
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (href, src, target, title, type_, value)
+import Html.Styled.Attributes exposing (href, placeholder, src, target, title, type_, value)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
@@ -73,15 +73,26 @@ type alias Model =
     , display : Display
     , showFiles : Bool
     , username : Maybe String
+    , token : Maybe String
     , search : String
     }
 
 
-getGists : String -> Cmd Msg
-getGists username =
-    Http.get
-        { url = "https://api.github.com/users/" ++ username ++ "/gists"
+authHeader : Maybe String -> Maybe Http.Header
+authHeader =
+    Maybe.map (Http.header "Authorization" << (\t -> "token " ++ t))
+
+
+getGists : Maybe String -> String -> Cmd Msg
+getGists token username =
+    Http.request
+        { method = "GET"
+        , headers = Maybe.toList <| authHeader token
+        , url = "https://api.github.com/users/" ++ username ++ "/gists"
+        , body = Http.emptyBody
         , expect = Http.expectJson (RemoteData.fromResult >> GotGists) (D.list gistD)
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 
@@ -91,6 +102,7 @@ init =
       , display = Grid
       , showFiles = False
       , username = Nothing
+      , token = Nothing
       , search = ""
       }
     , doLoadFromStorage ()
@@ -163,6 +175,8 @@ type Msg
     = GotGists (WebData (List Gist))
     | ChangeDisplay Display
     | ChangeSearch String
+    | ChangeToken String
+    | ClearToken
     | SearchGists
     | ToggleFiles
     | LoadFromStorage PersistedConfig
@@ -180,11 +194,21 @@ update msg model =
         ChangeSearch name ->
             ( { model | search = name }, Cmd.none )
 
+        ChangeToken token ->
+            ( { model | token = Just token }
+            , saveToStorage <| persistedE { token = Just token, username = model.username }
+            )
+
+        ClearToken ->
+            ( { model | token = Nothing }
+            , saveToStorage <| persistedE { token = Nothing, username = model.username }
+            )
+
         SearchGists ->
             ( { model | gists = Loading, username = Just model.search }
             , Cmd.batch
-                [ getGists model.search
-                , saveToStorage <| persistedE { token = Nothing, username = Just model.search }
+                [ getGists model.token model.search
+                , saveToStorage <| persistedE { token = model.token, username = Just model.search }
                 ]
             )
 
@@ -193,12 +217,13 @@ update msg model =
             , Cmd.none
             )
 
-        LoadFromStorage { username } ->
+        LoadFromStorage { username, token } ->
             ( { model
                 | username = username
+                , token = token
                 , gists = Maybe.unwrap NotAsked (always Loading) username
               }
-            , Maybe.unwrap Cmd.none getGists username
+            , Maybe.unwrap Cmd.none (getGists token) username
             )
 
 
@@ -226,15 +251,28 @@ renderTitle mbUsername =
             h1 [] [ text "search gists by GitHub username" ]
 
 
+
+-- TODO: save token separately from the search
+-- TODO: have a "form" field with the WIP values
+
+
 renderControls : Model -> Html Msg
-renderControls { display, showFiles, search } =
+renderControls { display, showFiles, search, token } =
     div [ Cx.search ]
         [ form [ onSubmit SearchGists ]
             [ input [ Cx.searchInput, onInput ChangeSearch, value search ] []
+            , input
+                [ Cx.searchInput
+                , placeholder "GitHub gist token"
+                , onInput ChangeToken
+                , value <| Maybe.withDefault "" token
+                ]
+                []
             , button [ Cx.searchBtn, type_ "submit" ] [ text "Search" ]
             ]
         , renderToggleDisplayBtn display
         , renderToggleFiles showFiles
+        , button [ Cx.searchBtn, type_ "button", onClick ClearToken ] [ text "Clear token" ]
         ]
 
 

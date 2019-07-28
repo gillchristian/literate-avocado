@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), User, init, main, update, view)
+port module Main exposing (main)
 
 import Browser
 import Cx
@@ -9,8 +9,11 @@ import Html.Styled.Attributes exposing (href, src, target, title, type_, value)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
+import Json.Encode as E
 import List as List
 import Maybe as Maybe
+import Maybe.Extra as Maybe
+import Platform.Cmd as Cmd
 import RemoteData exposing (RemoteData(..), WebData)
 import String as String
 import Tuple exposing (second)
@@ -59,6 +62,12 @@ type Display
 -- TODO: keep "current" user in path ?
 
 
+type alias PersistedConfig =
+    { username : Maybe String
+    , token : Maybe String
+    }
+
+
 type alias Model =
     { gists : WebData (List Gist)
     , display : Display
@@ -72,7 +81,7 @@ getGists : String -> Cmd Msg
 getGists username =
     Http.get
         { url = "https://api.github.com/users/" ++ username ++ "/gists"
-        , expect = Http.expectJson (RemoteData.fromResult >> GotGists) (D.list gistDecoder)
+        , expect = Http.expectJson (RemoteData.fromResult >> GotGists) (D.list gistD)
         }
 
 
@@ -84,7 +93,7 @@ init =
       , username = Nothing
       , search = ""
       }
-    , Cmd.none
+    , doLoadFromStorage ()
     )
 
 
@@ -92,21 +101,21 @@ init =
 ---- -> JSON -> ----
 
 
-gistDecoder : D.Decoder Gist
-gistDecoder =
+gistD : D.Decoder Gist
+gistD =
     D.map8 Gist
         (D.field "id" D.string)
         (D.field "description" <| D.nullable D.string)
         (D.field "html_url" D.string)
-        (D.field "files" <| D.dict fileDecoder)
+        (D.field "files" <| D.dict fileD)
         (D.field "public" D.bool)
         (D.field "created_at" D.string)
         (D.field "updated_at" D.string)
-        (D.field "owner" userDecoder)
+        (D.field "owner" userD)
 
 
-userDecoder : D.Decoder User
-userDecoder =
+userD : D.Decoder User
+userD =
     D.map4 User
         (D.field "id" D.int)
         (D.field "login" D.string)
@@ -114,11 +123,36 @@ userDecoder =
         (D.field "avatar_url" D.string)
 
 
-fileDecoder : D.Decoder File
-fileDecoder =
+fileD : D.Decoder File
+fileD =
     D.map2 File
         (D.field "filename" D.string)
         (D.field "language" <| D.nullable D.string)
+
+
+persistedD : D.Decoder PersistedConfig
+persistedD =
+    D.map2 PersistedConfig
+        (D.field "username" <| D.nullable D.string)
+        (D.field "token" <| D.nullable D.string)
+
+
+persistedE : PersistedConfig -> E.Value
+persistedE { username, token } =
+    E.object
+        [ ( "username", maybeE E.string username )
+        , ( "token", maybeE E.string token )
+        ]
+
+
+maybeE : (a -> E.Value) -> Maybe a -> E.Value
+maybeE encoder =
+    Maybe.unwrap E.null encoder
+
+
+decodePersitedConfig : D.Value -> PersistedConfig
+decodePersitedConfig =
+    Result.withDefault { username = Nothing, token = Nothing } << D.decodeValue persistedD
 
 
 
@@ -131,6 +165,7 @@ type Msg
     | ChangeSearch String
     | SearchGists
     | ToggleFiles
+    | LoadFromStorage PersistedConfig
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -147,12 +182,23 @@ update msg model =
 
         SearchGists ->
             ( { model | gists = Loading, username = Just model.search }
-            , getGists model.search
+            , Cmd.batch
+                [ getGists model.search
+                , saveToStorage <| persistedE { token = Nothing, username = Just model.search }
+                ]
             )
 
         ToggleFiles ->
             ( { model | showFiles = not model.showFiles }
             , Cmd.none
+            )
+
+        LoadFromStorage { username } ->
+            ( { model
+                | username = username
+                , gists = Maybe.unwrap NotAsked (always Loading) username
+              }
+            , Maybe.unwrap Cmd.none getGists username
             )
 
 
@@ -276,7 +322,7 @@ renderGist display showFiles { id, html_url, owner, files } =
 
         -- `gistName` is also the name of the first file (unless there's none)
         gistName =
-            Maybe.withDefault id <| Maybe.map .filename <| List.head filesLs
+            Maybe.unwrap id .filename <| List.head filesLs
 
         styles =
             case display of
@@ -292,9 +338,6 @@ renderGist display showFiles { id, html_url, owner, files } =
 
             else
                 []
-
-        fs =
-            div [] fsHtml
     in
     div [ styles ]
         [ a
@@ -304,13 +347,30 @@ renderGist display showFiles { id, html_url, owner, files } =
             , title gistName
             ]
             [ text <| "/" ++ gistName ]
-        , fs
+        , div [] fsHtml
         ]
 
 
 renderFile : File -> Html Msg
 renderFile file =
     div [] [ text file.filename ]
+
+
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions =
+    loadFromStorage (LoadFromStorage << decodePersitedConfig)
+
+
+port saveToStorage : E.Value -> Cmd msg
+
+
+port loadFromStorage : (D.Value -> msg) -> Sub msg
+
+
+port doLoadFromStorage : () -> Cmd msg
 
 
 
@@ -323,5 +383,5 @@ main =
         { view = view >> toUnstyled
         , init = \_ -> init
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions = \_ -> subscriptions
         }

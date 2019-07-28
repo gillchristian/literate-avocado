@@ -63,7 +63,7 @@ type alias Model =
     { gists : WebData (List Gist)
     , display : Display
     , showFiles : Bool
-    , username : String -- Maybe String
+    , username : Maybe String
     , search : String
     }
 
@@ -78,17 +78,13 @@ getGists username =
 
 init : ( Model, Cmd Msg )
 init =
-    let
-        username =
-            "gillchristian"
-    in
-    ( { gists = Loading
+    ( { gists = NotAsked
       , display = Grid
       , showFiles = False
-      , username = username
+      , username = Nothing
       , search = ""
       }
-    , getGists username
+    , Cmd.none
     )
 
 
@@ -150,7 +146,7 @@ update msg model =
             ( { model | search = name }, Cmd.none )
 
         SearchGists ->
-            ( { model | gists = Loading, username = model.search }
+            ( { model | gists = Loading, username = Just model.search }
             , getGists model.search
             )
 
@@ -169,9 +165,19 @@ view model =
     div [ Cx.content ]
         [ Cx.global
         , renderControls model
-        , h1 [] [ text <| model.username ++ " gists" ]
+        , renderTitle model.username
         , renderGists model
         ]
+
+
+renderTitle : Maybe String -> Html Msg
+renderTitle mbUsername =
+    case mbUsername of
+        Just username ->
+            h1 [] [ text <| username ++ " gists" ]
+
+        Nothing ->
+            h1 [] [ text "search gists by GitHub username" ]
 
 
 renderControls : Model -> Html Msg
@@ -188,23 +194,16 @@ renderControls { display, showFiles, search } =
 
 renderToggleDisplayBtn : Display -> Html Msg
 renderToggleDisplayBtn display =
-    button
-        [ onClick <|
+    let
+        ( msg, label ) =
             case display of
                 Grid ->
-                    ChangeDisplay List
+                    ( ChangeDisplay List, "☷" )
 
                 List ->
-                    ChangeDisplay Grid
-        ]
-        [ text <|
-            case display of
-                Grid ->
-                    "☷"
-
-                List ->
-                    "☰"
-        ]
+                    ( ChangeDisplay Grid, "☰" )
+    in
+    button [ onClick msg ] [ text label ]
 
 
 renderToggleFiles : Bool -> Html Msg
@@ -224,12 +223,10 @@ renderError : Http.Error -> Html Msg
 renderError err =
     case err of
         BadUrl str ->
-            text str
+            p [] [ text str ]
 
         Timeout ->
-            div []
-                [ p [] [ text "Request timed out." ]
-                ]
+            p [] [ text "Request timed out." ]
 
         NetworkError ->
             div []
@@ -238,10 +235,10 @@ renderError err =
                 ]
 
         BadStatus code ->
-            text <| "Status:" ++ String.fromInt code
+            p [] [ text <| "Status: " ++ String.fromInt code ]
 
         BadBody msg ->
-            text <| "BadBody: " ++ msg
+            p [] [ text <| "BadBody: " ++ msg ]
 
 
 renderGists : Model -> Html Msg
@@ -264,22 +261,22 @@ renderGists { display, showFiles, gists } =
         Failure err ->
             div [] [ renderError err ]
 
-        _ ->
-            -- TODO: spinner / animation ?
+        Loading ->
             div [] [ text "..." ]
+
+        NotAsked ->
+            text ""
 
 
 renderGist : Display -> Bool -> Gist -> Html Msg
 renderGist display showFiles { id, html_url, owner, files } =
     let
         filesLs =
-            Dict.toList files
+            Dict.values files
 
         -- `gistName` is also the name of the first file (unless there's none)
         gistName =
-            Maybe.withDefault id <|
-                Maybe.map (.filename << second) <|
-                    List.head filesLs
+            Maybe.withDefault id <| Maybe.map .filename <| List.head filesLs
 
         styles =
             case display of
@@ -311,10 +308,9 @@ renderGist display showFiles { id, html_url, owner, files } =
         ]
 
 
-renderFile : ( String, File ) -> Html Msg
-renderFile ( name, _ ) =
-    -- TODO: add styles
-    div [] [ text name ]
+renderFile : File -> Html Msg
+renderFile file =
+    div [] [ text file.filename ]
 
 
 

@@ -2,6 +2,7 @@ port module Main exposing (main)
 
 import Browser
 import Cx
+import Debug
 import Dict as Dict exposing (Dict)
 import Html
 import Html.Styled exposing (..)
@@ -14,9 +15,9 @@ import List as List
 import Maybe as Maybe
 import Maybe.Extra as Maybe
 import Platform.Cmd as Cmd
-import RemoteData exposing (RemoteData(..), WebData)
+import RemoteData as RemoteData exposing (RemoteData(..), WebData)
 import String as String
-import Tuple exposing (second)
+import Tuple exposing (first, second)
 
 
 
@@ -89,14 +90,44 @@ authHeader =
     Maybe.map (Http.header "Authorization" << (\t -> "token " ++ t))
 
 
+type alias Headers =
+    Dict String String
+
+
+expectJson : (Result Http.Error ( a, Headers ) -> msg) -> D.Decoder a -> Http.Expect msg
+expectJson toMsg decoder =
+    Http.expectStringResponse toMsg <|
+        \response ->
+            case response of
+                Http.BadUrl_ url ->
+                    Err (Http.BadUrl url)
+
+                Http.Timeout_ ->
+                    Err Http.Timeout
+
+                Http.NetworkError_ ->
+                    Err Http.NetworkError
+
+                Http.BadStatus_ metadata body ->
+                    Err (Http.BadStatus metadata.statusCode)
+
+                Http.GoodStatus_ { headers } body ->
+                    case D.decodeString decoder body of
+                        Ok value ->
+                            Ok ( value, headers )
+
+                        Err err ->
+                            Err (Http.BadBody (D.errorToString err))
+
+
 getGists : Maybe String -> String -> Cmd Msg
-getGists token username =
+getGists token url =
     Http.request
         { method = "GET"
         , headers = Maybe.toList <| authHeader token
-        , url = "https://api.github.com/users/" ++ username ++ "/gists"
+        , url = url
         , body = Http.emptyBody
-        , expect = Http.expectJson (RemoteData.fromResult >> GotGists) (D.list gistD)
+        , expect = expectJson (RemoteData.fromResult >> GotGists) (D.list gistD)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -179,7 +210,7 @@ decodePersitedConfig =
 
 
 type Msg
-    = GotGists (WebData (List Gist))
+    = GotGists (WebData ( List Gist, Headers ))
     | ChangeDisplay Display
     | ChangeSearch String
     | ChangeToken String
@@ -190,11 +221,54 @@ type Msg
     | ToggleSidebar
 
 
+{-| nextUrl parses the "Link" header from GitHub's API to get the next url.
+
+Transforms this:
+
+    <https://api.github.com/user/8309423/gists?page=2>; rel="next", <https://api.github.com/user/8309423/gists?page=2>; rel="last"
+
+    <https://api.github.com/user/8309423/gists?page=1>; rel="prev",
+    <https://api.github.com/user/8309423/gists?page=3>; rel="next",
+    <https://api.github.com/user/8309423/gists?page=5>; rel="last",
+    <https://api.github.com/user/8309423/gists?page=1>; rel="first"
+
+To this:
+
+    https://api.github.com/user/8309423/gists?page=2
+
+    https://api.github.com/user/8309423/gists?page=3
+
+-}
+nextUrl : Headers -> Maybe String
+nextUrl =
+    Dict.get "link"
+        >> Maybe.filter hasNext
+        >> Maybe.map (String.split "," >> List.filter hasNext)
+        >> Maybe.andThen List.head
+        >> Maybe.map (String.split ";")
+        >> Maybe.andThen List.head
+        >> Maybe.map (String.replace "<" "" >> String.replace ">" "")
+
+
+hasNext : String -> Bool
+hasNext =
+    String.contains "rel=\"next\""
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotGists gists ->
-            ( { model | gists = gists, search = "" }, Cmd.none )
+        GotGists result ->
+            let
+                gists =
+                    result
+                        |> RemoteData.map first
+                        |> RemoteData.map ((++) <| RemoteData.withDefault [] model.gists)
+            in
+            ( { model | gists = gists, search = "" }
+            , RemoteData.unwrap Nothing (nextUrl << second) result
+                |> Maybe.unwrap Cmd.none (getGists model.token)
+            )
 
         ChangeDisplay display ->
             ( { model | display = display }, Cmd.none )
@@ -215,7 +289,7 @@ update msg model =
         SearchGists ->
             ( { model | gists = Loading, username = Just model.search }
             , Cmd.batch
-                [ getGists model.token model.search
+                [ getGists model.token <| gistsUrl model.search
                 , saveToStorage <| persistedE { token = model.token, username = Just model.search }
                 ]
             )
@@ -232,8 +306,13 @@ update msg model =
                 , token = token
                 , gists = Maybe.unwrap NotAsked (always Loading) username
               }
-            , Maybe.unwrap Cmd.none (getGists token) username
+            , Maybe.unwrap Cmd.none (getGists token << gistsUrl) username
             )
+
+
+gistsUrl : String -> String
+gistsUrl username =
+    "https://api.github.com/users/" ++ username ++ "/gists"
 
 
 

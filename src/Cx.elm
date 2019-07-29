@@ -151,7 +151,7 @@ menuToggle =
         , right <| px 10
         , top <| px 10
         , cursor pointer
-        , fontSize <| px 26
+        , fontSize <| px 30
         , zIndex <| int 2000
         ]
 

@@ -1,3 +1,3 @@
-# psychic-literate
+# literate-avocado
 
-A Gist explorer (in progress)
+A GitHub Gist explorer (in progress)

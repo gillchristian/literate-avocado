@@ -62,3 +62,14 @@ Link: <https://api.github.com/user/8309423/gists?page=1>; rel="prev", <https://a
   "truncated": false
 }
 ```
+
+---
+
+**TODO**:
+
+- [ ] Have a "form" field with the WIP values
+- [x] Hide token after save (allow to modify / clear)
+- [ ] Keep searched users in "tabs" ?
+- [ ] Keep "current" user in path ?
+- [ ] Save token separately from the search (what did I mean here?)
+- [ ] Show a lable similar to GitHub's (solve problem with layout)

@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import ConfigField exposing (ConfigField(..))
 import Cx
 import Debug
 import Dict as Dict exposing (Dict)
@@ -60,18 +61,14 @@ type Visible
     | Hide
 
 
-
--- TODO: load user from localStorage (mvp)
--- TODO: modal with config: secret (mvp)
--- TODO: parse headers with next & fetch all pages (mvp)
--- TODO: keep searched users in "tabs" ?
--- TODO: keep "current" user in path ?
-
-
 type alias PersistedConfig =
     { username : Maybe String
     , token : Maybe String
     }
+
+
+type alias Token =
+    ConfigField String
 
 
 type alias Model =
@@ -79,7 +76,7 @@ type alias Model =
     , display : Display
     , showFiles : Bool
     , username : Maybe String
-    , token : Maybe String
+    , token : Token
     , search : String
     , sidebar : Visible
     }
@@ -94,8 +91,8 @@ type alias Headers =
     Dict String String
 
 
-expectJson : (Result Http.Error ( a, Headers ) -> msg) -> D.Decoder a -> Http.Expect msg
-expectJson toMsg decoder =
+expectJsonWithHeaders : (Result Http.Error ( a, Headers ) -> msg) -> D.Decoder a -> Http.Expect msg
+expectJsonWithHeaders toMsg decoder =
     Http.expectStringResponse toMsg <|
         \response ->
             case response of
@@ -127,7 +124,10 @@ getGists token url =
         , headers = Maybe.toList <| authHeader token
         , url = url
         , body = Http.emptyBody
-        , expect = expectJson (RemoteData.fromResult >> GotGists) (D.list gistD)
+        , expect =
+            expectJsonWithHeaders
+                (RemoteData.fromResult >> GotGists)
+                (D.list gistD)
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -139,7 +139,7 @@ init =
       , display = Grid
       , showFiles = False
       , username = Nothing
-      , token = Nothing
+      , token = Empty
       , search = ""
       , sidebar = Hide
       }
@@ -211,17 +211,23 @@ decodePersitedConfig =
 
 type Msg
     = GotGists (WebData ( List Gist, Headers ))
-    | ChangeDisplay Display
+    | LoadFromStorage PersistedConfig
+      -- Search
     | ChangeSearch String
+    | SearchGists
+      -- Token
     | ChangeToken String
     | ClearToken
-    | SearchGists
+    | AddNewToken
+    | SaveToken String
+      -- UI
+    | ChangeDisplay Display
     | ToggleFiles
-    | LoadFromStorage PersistedConfig
     | ToggleSidebar
 
 
 {-| nextUrl parses the "Link" header from GitHub's API to get the next url.
+Docs: [developer.github.com/v3/gists](https://developer.github.com/v3/gists)
 
 Transforms this:
 
@@ -267,47 +273,70 @@ update msg model =
             in
             ( { model | gists = gists, search = "" }
             , RemoteData.unwrap Nothing (nextUrl << second) result
-                |> Maybe.unwrap Cmd.none (getGists model.token)
+                |> Maybe.unwrap Cmd.none (getGists <| ConfigField.toMaybe model.token)
             )
 
-        ChangeDisplay display ->
-            ( { model | display = display }, Cmd.none )
+        LoadFromStorage { username, token } ->
+            ( { model
+                | username = username
+                , token = ConfigField.fromMaybe token
+                , gists = Maybe.unwrap NotAsked (always Loading) username
+              }
+              -- TODO don't search if results are here already =/
+            , Maybe.unwrap Cmd.none (getGists token << gistsUrl) username
+            )
 
+        -- Search
         ChangeSearch name ->
             ( { model | search = name }, Cmd.none )
-
-        ChangeToken token ->
-            ( { model | token = Just token }
-            , saveToStorage <| persistedE { token = Just token, username = model.username }
-            )
-
-        ClearToken ->
-            ( { model | token = Nothing }
-            , saveToStorage <| persistedE { token = Nothing, username = model.username }
-            )
 
         SearchGists ->
             ( { model | gists = Loading, username = Just model.search }
             , Cmd.batch
-                [ getGists model.token <| gistsUrl model.search
-                , saveToStorage <| persistedE { token = model.token, username = Just model.search }
+                [ getGists (ConfigField.toMaybe model.token) (gistsUrl model.search)
+                , saveToStorage <|
+                    persistedE
+                        { token = ConfigField.toMaybe model.token
+                        , username = Just model.search
+                        }
                 ]
             )
+
+        -- Token
+        ChangeToken token ->
+            ( { model | token = Editing token }
+            , Cmd.none
+            )
+
+        ClearToken ->
+            ( { model | token = Empty }
+            , saveToStorage <| persistedE { token = Nothing, username = model.username }
+            )
+
+        AddNewToken ->
+            ( { model | token = Editing "" }
+            , Cmd.none
+            )
+
+        SaveToken token ->
+            ( { model | token = Saved token }
+            , Cmd.batch
+                [ getGists (Just token) (gistsUrl model.search)
+                , saveToStorage <|
+                    persistedE
+                        { token = Just token, username = model.username }
+                ]
+            )
+
+        -- UI ----------------------------------------------
+        ChangeDisplay display ->
+            ( { model | display = display }, Cmd.none )
 
         ToggleFiles ->
             ( { model | showFiles = not model.showFiles }, Cmd.none )
 
         ToggleSidebar ->
             ( { model | sidebar = showHide Hide Show model.sidebar }, Cmd.none )
-
-        LoadFromStorage { username, token } ->
-            ( { model
-                | username = username
-                , token = token
-                , gists = Maybe.unwrap NotAsked (always Loading) username
-              }
-            , Maybe.unwrap Cmd.none (getGists token << gistsUrl) username
-            )
 
 
 gistsUrl : String -> String
@@ -349,17 +378,34 @@ renderSidebarControls : Model -> Html Msg
 renderSidebarControls model =
     div []
         [ p [] [ text "GitHub Gist Token" ]
+        , case model.token of
+            Empty ->
+                button
+                    [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                    [ text "Add New Token" ]
 
-        -- TODO: hide token after save (allow to modify / clear)
-        , input
-            [ Cx.searchInput
-            , onInput ChangeToken
-            , value <| Maybe.withDefault "" model.token
-            ]
-            []
-        , button
-            [ Cx.searchBtn, type_ "button", onClick ClearToken ]
-            [ text "Clear" ]
+            Editing token ->
+                div []
+                    [ input
+                        [ Cx.searchInput
+                        , onInput ChangeToken
+                        , value token
+                        ]
+                        []
+                    , button
+                        [ Cx.searchBtn, type_ "button", onClick <| SaveToken token ]
+                        [ text "Save" ]
+                    ]
+
+            Saved _ ->
+                div []
+                    [ button
+                        [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                        [ text "Add New Token" ]
+                    , button
+                        [ Cx.searchBtn, type_ "button", onClick ClearToken ]
+                        [ text "Clear" ]
+                    ]
         ]
 
 
@@ -378,11 +424,6 @@ renderTitle mbUsername =
 
         Nothing ->
             h1 [] [ text "search gists by GitHub username" ]
-
-
-
--- TODO: save token separately from the search
--- TODO: have a "form" field with the WIP values
 
 
 renderControls : Model -> Html Msg
@@ -516,7 +557,6 @@ renderGist display showFiles { id, html_url, owner, files, public } =
             , target "_blank"
             , title gistName
             ]
-            -- TODO: show a lable similar to GitHub's (solve problem with layout)
             [ text <| "/" ++ gistName, privateLabel ]
         , fsHtml
         ]

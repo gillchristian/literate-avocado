@@ -20,6 +20,7 @@ module Cx exposing
     , sidebar
     , sidebarBackdrop
     , sidebarOpen
+    , small
     )
 
 import Css exposing (..)
@@ -159,6 +160,11 @@ menuToggle =
 empty : Style
 empty =
     batch []
+
+
+small : Html.Styled.Attribute msg
+small =
+    css [ fontSize Css.small ]
 
 
 

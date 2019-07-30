@@ -3,7 +3,6 @@ port module Main exposing (main)
 import Browser
 import ConfigField exposing (ConfigField(..))
 import Cx
-import Debug
 import Dict as Dict exposing (Dict)
 import Html
 import Html.Styled exposing (..)
@@ -91,7 +90,10 @@ type alias Headers =
     Dict String String
 
 
-expectJsonWithHeaders : (Result Http.Error ( a, Headers ) -> msg) -> D.Decoder a -> Http.Expect msg
+expectJsonWithHeaders :
+    (Result Http.Error ( a, Headers ) -> msg)
+    -> D.Decoder a
+    -> Http.Expect msg
 expectJsonWithHeaders toMsg decoder =
     Http.expectStringResponse toMsg <|
         \response ->
@@ -202,7 +204,8 @@ maybeE encoder =
 
 decodePersitedConfig : D.Value -> PersistedConfig
 decodePersitedConfig =
-    Result.withDefault { username = Nothing, token = Nothing } << D.decodeValue persistedD
+    Result.withDefault { username = Nothing, token = Nothing }
+        << D.decodeValue persistedD
 
 
 
@@ -231,7 +234,8 @@ Docs: [developer.github.com/v3/gists](https://developer.github.com/v3/gists)
 
 Transforms this:
 
-    <https://api.github.com/user/8309423/gists?page=2>; rel="next", <https://api.github.com/user/8309423/gists?page=2>; rel="last"
+    <https://api.github.com/user/8309423/gists?page=2>; rel="next",
+    <https://api.github.com/user/8309423/gists?page=2>; rel="last"
 
     <https://api.github.com/user/8309423/gists?page=1>; rel="prev",
     <https://api.github.com/user/8309423/gists?page=3>; rel="next",
@@ -266,14 +270,18 @@ update msg model =
     case msg of
         GotGists result ->
             let
+                appendNewGists =
+                    (++) <| RemoteData.withDefault [] model.gists
+
                 gists =
-                    result
-                        |> RemoteData.map first
-                        |> RemoteData.map ((++) <| RemoteData.withDefault [] model.gists)
+                    RemoteData.map (first >> appendNewGists) result
             in
             ( { model | gists = gists, search = "" }
-            , RemoteData.unwrap Nothing (nextUrl << second) result
-                |> Maybe.unwrap Cmd.none (getGists <| ConfigField.toMaybe model.token)
+            , Maybe.unwrap
+                Cmd.none
+                (getGists <| ConfigField.toMaybe model.token)
+              <|
+                RemoteData.unwrap Nothing (nextUrl << second) result
             )
 
         LoadFromStorage { username, token } ->
@@ -293,7 +301,9 @@ update msg model =
         SearchGists ->
             ( { model | gists = Loading, username = Just model.search }
             , Cmd.batch
-                [ getGists (ConfigField.toMaybe model.token) (gistsUrl model.search)
+                [ getGists
+                    (ConfigField.toMaybe model.token)
+                    (gistsUrl model.search)
                 , saveToStorage <|
                     persistedE
                         { token = ConfigField.toMaybe model.token
@@ -310,7 +320,8 @@ update msg model =
 
         ClearToken ->
             ( { model | token = Empty }
-            , saveToStorage <| persistedE { token = Nothing, username = model.username }
+            , saveToStorage <|
+                persistedE { token = Nothing, username = model.username }
             )
 
         AddNewToken ->
@@ -319,9 +330,12 @@ update msg model =
             )
 
         SaveToken token ->
-            ( { model | token = Saved token }
+            ( { model | token = Saved token, gists = Loading }
             , Cmd.batch
-                [ getGists (Just token) (gistsUrl model.search)
+                [ Maybe.unwrap
+                    Cmd.none
+                    (getGists (Just token) << gistsUrl)
+                    model.username
                 , saveToStorage <|
                     persistedE
                         { token = Just token, username = model.username }
@@ -364,6 +378,7 @@ view model =
         [ Cx.global
         , renderControls model
         , renderTitle model.username
+        , renderTokenMsg model.token
         , renderGists model
         , div [ Cx.menuToggle, onClick ToggleSidebar ] [ text "☰" ]
         , sidebar model.sidebar <| renderSidebarControls model
@@ -372,6 +387,24 @@ view model =
             (text "")
             model.sidebar
         ]
+
+
+renderTokenMsg : Token -> Html Msg
+renderTokenMsg token =
+    case token of
+        Saved _ ->
+            text ""
+
+        _ ->
+            p [ Cx.small ]
+                [ text "To see your private Gits add a "
+                , a
+                    [ href "https://developer.github.com/v3/gists/#authentication"
+                    , target "_blank"
+                    ]
+                    [ text "GitHub token" ]
+                , text " (no scopes needed since this only reads gists)"
+                ]
 
 
 renderSidebarControls : Model -> Html Msg
@@ -393,7 +426,10 @@ renderSidebarControls model =
                         ]
                         []
                     , button
-                        [ Cx.searchBtn, type_ "button", onClick <| SaveToken token ]
+                        [ Cx.searchBtn
+                        , type_ "button"
+                        , onClick <| SaveToken token
+                        ]
                         [ text "Save" ]
                     ]
 

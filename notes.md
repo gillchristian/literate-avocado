@@ -67,9 +67,23 @@ Link: <https://api.github.com/user/8309423/gists?page=1>; rel="prev", <https://a
 
 **TODO**:
 
-- [ ] Have a "form" field with the WIP values
+v1
+
 - [x] Hide token after save (allow to modify / clear)
+- [x] Save token separately from the search (what did I mean here?)
+- [x] Show a label similar to GitHub's (solve problem with layout) -> for secret ones
+- [x] Have a "form" field with the WIP values (solved with the `ConfigFied` type)
+- [ ] Better label for "Show only main Gist file" / "Show all files in Gist"
+- [ ] Better position of the hamburger menu
+- [ ] Sidebar Design
+- [ ] Footer -> Name & link to GitHub, Twitter, etc.
+- [ ] Mobile friendly :sweat_smile:
+
+v2
+
+- [ ] Keep "current" user in URL ? -> Migrate to [`Browser.application`](https://package.elm-lang.org/packages/elm/browser/latest/Browser#application)
 - [ ] Keep searched users in "tabs" ?
-- [ ] Keep "current" user in path ?
-- [ ] Save token separately from the search (what did I mean here?)
-- [ ] Show a lable similar to GitHub's (solve problem with layout)
+- [ ] On list view show more data (creation date, description?, files in line/tree, comment count)
+- [ ] Improve the _fetch next page_ logic & state (e.g. keep track of "loading next page" -> show loding at bottom & in count)
+- [ ] Make _fetch all pages_ configurable
+- [ ] Keep searched users in "tabs" ?

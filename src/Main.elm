@@ -6,7 +6,16 @@ import Cx
 import Dict as Dict exposing (Dict)
 import Html
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (href, src, target, title, type_, value)
+import Html.Styled.Attributes
+    exposing
+        ( disabled
+        , href
+        , src
+        , target
+        , title
+        , type_
+        , value
+        )
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
@@ -290,7 +299,6 @@ update msg model =
                 , token = ConfigField.fromMaybe token
                 , gists = Maybe.unwrap NotAsked (always Loading) username
               }
-              -- TODO don't search if results are here already =/
             , Maybe.unwrap Cmd.none (getGists token << gistsUrl) username
             )
 
@@ -299,18 +307,22 @@ update msg model =
             ( { model | search = name }, Cmd.none )
 
         SearchGists ->
-            ( { model | gists = Loading, username = Just model.search }
-            , Cmd.batch
-                [ getGists
-                    (ConfigField.toMaybe model.token)
-                    (gistsUrl model.search)
-                , saveToStorage <|
-                    persistedE
-                        { token = ConfigField.toMaybe model.token
-                        , username = Just model.search
-                        }
-                ]
-            )
+            if model.search == "" then
+                ( model, Cmd.none )
+
+            else
+                ( { model | gists = Loading, username = Just model.search }
+                , Cmd.batch
+                    [ getGists
+                        (ConfigField.toMaybe model.token)
+                        (gistsUrl model.search)
+                    , saveToStorage <|
+                        persistedE
+                            { token = ConfigField.toMaybe model.token
+                            , username = Just model.search
+                            }
+                    ]
+                )
 
         -- Token
         ChangeToken token ->
@@ -377,7 +389,7 @@ view model =
     div [ Cx.content ]
         [ Cx.global
         , renderControls model
-        , renderTitle model.username
+        , renderTitle model
         , renderTokenMsg model.token
         , renderGists model
         , div [ Cx.menuToggle, onClick ToggleSidebar ] [ text "☰" ]
@@ -452,30 +464,47 @@ sidebar visible content =
         [ showHide content (text "") visible ]
 
 
-renderTitle : Maybe String -> Html Msg
-renderTitle mbUsername =
-    case mbUsername of
-        Just username ->
-            h1 [] [ text <| username ++ " gists" ]
+renderTitle : Model -> Html Msg
+renderTitle { username, gists } =
+    case username of
+        Just name ->
+            h1 []
+                [ text <| name ++ " gists"
+                , RemoteData.unwrap (text "")
+                    (small []
+                        << (\s -> [ text <| " (" ++ s ++ ")" ])
+                        << String.fromInt
+                        << List.length
+                    )
+                    gists
+                ]
 
         Nothing ->
-            h1 [] [ text "search gists by GitHub username" ]
+            text ""
 
 
 renderControls : Model -> Html Msg
-renderControls { display, showFiles, search, token } =
+renderControls { gists, display, showFiles, search, token } =
     div [ Cx.search ]
         [ form [ onSubmit SearchGists ]
-            [ input [ Cx.searchInput, onInput ChangeSearch, value search ] []
-            , button [ Cx.searchBtn, type_ "submit" ] [ text "Search" ]
+            [ input
+                [ Cx.searchInput
+                , onInput ChangeSearch
+                , value search
+                , disabled <| RemoteData.isLoading gists
+                ]
+                []
+            , button
+                [ Cx.searchBtn, disabled <| search == "", type_ "submit" ]
+                [ text "Search" ]
             ]
-        , renderToggleDisplayBtn display
-        , renderToggleFiles showFiles
+        , renderToggleFiles showFiles <| not <| RemoteData.isSuccess gists
+        , renderToggleDisplayBtn display <| not <| RemoteData.isSuccess gists
         ]
 
 
-renderToggleDisplayBtn : Display -> Html Msg
-renderToggleDisplayBtn display =
+renderToggleDisplayBtn : Display -> Bool -> Html Msg
+renderToggleDisplayBtn display disable =
     let
         ( msg, label ) =
             case display of
@@ -485,20 +514,22 @@ renderToggleDisplayBtn display =
                 List ->
                     ( ChangeDisplay Grid, "☰" )
     in
-    button [ onClick msg ] [ text label ]
+    button [ onClick msg, disabled disable ] [ text label ]
 
 
-renderToggleFiles : Bool -> Html Msg
-renderToggleFiles showFiles =
+renderToggleFiles : Bool -> Bool -> Html Msg
+renderToggleFiles showFiles disable =
     let
         label =
             if showFiles then
-                "Hide additional files"
+                "Show only main Gist file"
 
             else
-                "Show additional files"
+                "Show all files in Gist"
     in
-    button [ onClick ToggleFiles ] [ text label ]
+    button
+        [ Cx.minW, onClick ToggleFiles, disabled disable ]
+        [ text label ]
 
 
 renderError : Http.Error -> Html Msg
@@ -584,23 +615,26 @@ renderGist display showFiles { id, html_url, owner, files, public } =
                 text ""
 
             else
-                span [] [ text " *" ]
+                span [ Cx.gistPrivateLabel ] [ text "🔒" ]
     in
     div [ styles ]
-        [ a
-            [ Cx.gistItemLink
-            , href html_url
-            , target "_blank"
-            , title gistName
+        [ div [ Cx.gistHeader ]
+            [ a
+                [ Cx.gistItemLink
+                , href html_url
+                , target "_blank"
+                , title gistName
+                ]
+                [ text gistName ]
+            , privateLabel
             ]
-            [ text <| "/" ++ gistName, privateLabel ]
         , fsHtml
         ]
 
 
 renderFile : File -> Html Msg
 renderFile file =
-    div [] [ text file.filename ]
+    div [ Cx.file ] [ text file.filename ]
 
 
 

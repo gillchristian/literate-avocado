@@ -3,10 +3,13 @@ module Cx exposing
     , content
     , elmHot
     , empty
+    , file
+    , gistHeader
     , gistItem
     , gistItemGrid
     , gistItemLink
     , gistItemList
+    , gistPrivateLabel
     , gists
     , gistsGird
     , gistsList
@@ -14,6 +17,7 @@ module Cx exposing
     , input
     , inputAndBtn
     , menuToggle
+    , minW
     , search
     , searchBtn
     , searchInput
@@ -60,20 +64,25 @@ gistsList =
 
 gistItem : Style -> Html.Styled.Attribute msg
 gistItem modifier =
-    css [ fontSize <| px 13, modifier ]
+    css [ fontSize <| px 15, modifier ]
+
+
+gistHeader : Html.Styled.Attribute msg
+gistHeader =
+    css [ displayFlex, alignItems center ]
 
 
 gistItemGrid : Style
 gistItemGrid =
     batch
-        [ width <| px 230
-        , padding4 (px 10) (px 10) (px 20) zero
+        [ width <| px 280
+        , padding4 (px 10) (px 20) (px 20) zero
         ]
 
 
 gistItemList : Style
 gistItemList =
-    batch [ padding4 (px 10) zero zero zero ]
+    batch [ padding4 (px 20) zero zero zero ]
 
 
 gistItemLink : Html.Styled.Attribute msg
@@ -84,7 +93,24 @@ gistItemLink =
         , overflow hidden
         , display block
         , textOverflow ellipsis
+        , marginRight <| px 3
         ]
+
+
+gistPrivateLabel : Html.Styled.Attribute msg
+gistPrivateLabel =
+    css
+        [ fontWeight bold
+        , color <| hex "#AAA"
+        , lineHeight <| int 1
+        , fontSize <| px 12
+        , borderRadius <| px 2
+        ]
+
+
+file : Html.Styled.Attribute msg
+file =
+    css [ marginTop <| px 5 ]
 
 
 search : Html.Styled.Attribute msg
@@ -167,6 +193,11 @@ small =
     css [ fontSize Css.small ]
 
 
+minW : Html.Styled.Attribute msg
+minW =
+    css [ minWidth <| px 170 ]
+
+
 
 -- GLOBAL --
 
@@ -175,11 +206,12 @@ global : Html msg
 global =
     G.global
         [ elmHot
+        , G.everything [ boxSizing borderBox ]
         , body
         , G.a [ textDecoration none ]
-        , G.h1 [ fontSize <| px 30 ]
+        , G.h1 [ fontSize <| px 24 ]
         , G.img [ margin2 (px 20) zero, maxWidth <| px 200 ]
-        , G.button [ border3 (px 3) solid (hex "#333") ]
+        , G.button [ border3 (px 2) solid (hex "#333") ]
         , input
         , inputAndBtn
         ]
@@ -213,7 +245,7 @@ input : G.Snippet
 input =
     G.input
         [ border zero
-        , borderBottom3 (px 3) solid (hex "#333")
+        , borderBottom3 (px 2) solid (hex "#333")
         ]
 
 
@@ -222,8 +254,9 @@ inputAndBtn =
     G.each [ G.input, G.button ]
         [ backgroundColor transparent
         , outline none
-        , margin <| px 10
-        , padding <| px 10
-        , fontSize <| px 18
+        , margin <| px 5
+        , padding <| px 5
+        , fontSize <| px 14
         , cursor pointer
+        , disabled [ cursor notAllowed ]
         ]

@@ -78,6 +78,9 @@ v1
 - [ ] Sidebar Design
 - [ ] Footer -> Name & link to GitHub, Twitter, etc.
 - [ ] Mobile friendly :sweat_smile:
+- [ ] Initial blank screen (no user / no token) doesn't explain what to do
+- [ ] Fix: Add token without user :bug:
+- [ ] Fix: Reload when only token is present :bug:
 
 v2
 

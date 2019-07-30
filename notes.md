@@ -84,6 +84,7 @@ v1
 
 v2
 
+- [ ] Only allow extending view (e.g. showing extra files) on list view. Keep grid as clean as possible.
 - [ ] Keep "current" user in URL ? -> Migrate to [`Browser.application`](https://package.elm-lang.org/packages/elm/browser/latest/Browser#application)
 - [ ] Keep searched users in "tabs" ?
 - [ ] On list view show more data (creation date, description?, files in line/tree, comment count)

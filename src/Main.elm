@@ -10,6 +10,7 @@ import Html.Styled.Attributes
     exposing
         ( disabled
         , href
+        , placeholder
         , src
         , target
         , title
@@ -356,7 +357,16 @@ update msg model =
 
         -- UI ----------------------------------------------
         ChangeDisplay display ->
-            ( { model | display = display }, Cmd.none )
+            case display of
+                Grid ->
+                    ( { model | display = display, showFiles = False }
+                    , Cmd.none
+                    )
+
+                List ->
+                    ( { model | display = display, showFiles = True }
+                    , Cmd.none
+                    )
 
         ToggleFiles ->
             ( { model | showFiles = not model.showFiles }, Cmd.none )
@@ -390,7 +400,7 @@ view model =
         [ Cx.global
         , renderControls model
         , renderTitle model
-        , renderTokenMsg model.token
+        , renderTokenMsg model
         , renderGists model
         , div [ Cx.sidebarOpenBtn, onClick ToggleSidebar ] [ text "☰" ]
         , sidebar model.sidebar <| renderSidebarControls model
@@ -401,15 +411,15 @@ view model =
         ]
 
 
-renderTokenMsg : Token -> Html Msg
-renderTokenMsg token =
-    case token of
-        Saved _ ->
+renderTokenMsg : Model -> Html Msg
+renderTokenMsg { token, gists } =
+    case ( token, gists ) of
+        ( Saved _, _ ) ->
             text ""
 
-        _ ->
+        ( _, Success _ ) ->
             p [ Cx.small ]
-                [ text "To see your private Gits add a "
+                [ text "To see your secret Gits add a "
                 , a
                     [ href "https://developer.github.com/v3/gists/#authentication"
                     , target "_blank"
@@ -417,6 +427,9 @@ renderTokenMsg token =
                     [ text "GitHub token" ]
                 , text " (no scopes needed since this only reads gists)"
                 ]
+
+        _ ->
+            text ""
 
 
 renderSidebarControls : Model -> Html Msg
@@ -487,22 +500,25 @@ renderTitle { username, gists } =
 
 
 renderControls : Model -> Html Msg
-renderControls { gists, display, showFiles, search, token } =
+renderControls model =
     div [ Cx.controls ]
         [ form [ onSubmit SearchGists ]
             [ input
                 [ Cx.searchInput
+                , placeholder "GitHub username"
                 , onInput ChangeSearch
-                , value search
-                , disabled <| RemoteData.isLoading gists
+                , value model.search
+                , disabled <| RemoteData.isLoading model.gists
                 ]
                 []
             , button
-                [ Cx.searchBtn, disabled <| search == "", type_ "submit" ]
+                [ Cx.searchBtn, disabled <| model.search == "", type_ "submit" ]
                 [ text "Search" ]
             ]
-        , renderToggleFiles showFiles <| not <| RemoteData.isSuccess gists
-        , renderToggleDisplayBtn display <| not <| RemoteData.isSuccess gists
+        , RemoteData.isSuccess model.gists
+            |> not
+            |> renderToggleDisplayBtn model.display
+        , renderToggleFiles model
         ]
 
 
@@ -520,19 +536,27 @@ renderToggleDisplayBtn display disable =
     button [ onClick msg, disabled disable ] [ text label ]
 
 
-renderToggleFiles : Bool -> Bool -> Html Msg
-renderToggleFiles showFiles disable =
-    let
-        label =
-            if showFiles then
-                "Show only main Gist file"
+renderToggleFiles : Model -> Html Msg
+renderToggleFiles { showFiles, gists, display } =
+    case display of
+        Grid ->
+            text ""
 
-            else
-                "Show all files in Gist"
-    in
-    button
-        [ Cx.minW, onClick ToggleFiles, disabled disable ]
-        [ text label ]
+        List ->
+            let
+                label =
+                    if showFiles then
+                        "Only main file"
+
+                    else
+                        "All files"
+            in
+            button
+                [ Cx.minW
+                , onClick ToggleFiles
+                , RemoteData.isSuccess gists |> not |> disabled
+                ]
+                [ text label ]
 
 
 renderError : Http.Error -> Html Msg

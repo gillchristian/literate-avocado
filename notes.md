@@ -74,11 +74,11 @@ v1
 - [x] Show a label similar to GitHub's (solve problem with layout) -> for secret ones
 - [x] Have a "form" field with the WIP values (solved with the `ConfigFied` type)
 - [x] Better position of the hamburger menu
+- [x] Fix: sidebar cannot be closed on mobile
 - [ ] Better label for "Show only main Gist file" / "Show all files in Gist"
 - [ ] Sidebar Design
 - [ ] Footer -> Name & link to GitHub, Twitter, etc.
 - [ ] Mobile friendly :sweat_smile:
-- [ ] Fix: sidebar cannot be closed on mobile
 - [ ] Initial blank screen (no user / no token) doesn't explain what to do
 - [ ] Fix: Add token without user :bug:
 - [ ] Fix: Reload when only token is present :bug:

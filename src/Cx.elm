@@ -213,12 +213,12 @@ empty =
 
 small : Html.Styled.Attribute msg
 small =
-    css [ fontSize Css.small ]
+    css [ fontSize Css.small, paddingTop <| px 10, paddingLeft <| px 5 ]
 
 
 minW : Html.Styled.Attribute msg
 minW =
-    css [ minWidth <| px 170 ]
+    css [ minWidth <| px 120 ]
 
 
 

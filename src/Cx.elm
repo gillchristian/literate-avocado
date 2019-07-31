@@ -18,19 +18,25 @@ module Cx exposing
     , input
     , inputAndBtn
     , minW
+    , notAskedMsg
     , searchBtn
     , searchInput
     , sidebar
     , sidebarBackdrop
     , sidebarCloseBtn
     , sidebarContent
+    , sidebarHeader
     , sidebarOpen
     , sidebarOpenBtn
     , small
+    , tokenBlock
+    , tokenBlockHeading
+    , tokenBlockMsg
     )
 
 import Css exposing (..)
 import Css.Global as G
+import Css.Media as M
 import Css.Transitions as Ts
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css)
@@ -43,6 +49,11 @@ content =
         , flexDirection column
         , padding3 (px 50) (px 20) (px 20)
         ]
+
+
+notAskedMsg : Html.Styled.Attribute msg
+notAskedMsg =
+    css [ marginTop <| px 20 ]
 
 
 gists : Style -> Html.Styled.Attribute msg
@@ -135,6 +146,7 @@ sidebar modifier =
     css
         [ position fixed
         , width <| px 500
+        , maxWidth <| vw 100
         , height <| vh 100
         , maxHeight <| vh 100
         , backgroundColor <| rgb 255 255 255
@@ -189,8 +201,8 @@ sidebarCloseBtn : Html.Styled.Attribute msg
 sidebarCloseBtn =
     css
         [ position absolute
-        , left <| px 20
-        , top <| px 10
+        , right <| px 10
+        , top <| px 5
         , cursor pointer
         , fontSize <| px 26
         , lineHeight <| int 1
@@ -202,8 +214,28 @@ sidebarContent : Html.Styled.Attribute msg
 sidebarContent =
     css
         [ position relative
-        , padding3 (px 50) (px 15) zero
+        , padding4 (px 20) (px 20) zero (px 15)
         ]
+
+
+sidebarHeader : Html.Styled.Attribute msg
+sidebarHeader =
+    css [ paddingLeft <| px 5, marginBottom <| px 50 ]
+
+
+tokenBlock : Html.Styled.Attribute msg
+tokenBlock =
+    css []
+
+
+tokenBlockMsg : Html.Styled.Attribute msg
+tokenBlockMsg =
+    css [ paddingLeft <| px 5, fontSize <| px 12, marginBottom <| px 5 ]
+
+
+tokenBlockHeading : Html.Styled.Attribute msg
+tokenBlockHeading =
+    css [ paddingLeft <| px 5, fontWeight <| bold ]
 
 
 empty : Style
@@ -213,7 +245,11 @@ empty =
 
 small : Html.Styled.Attribute msg
 small =
-    css [ fontSize Css.small, paddingTop <| px 10, paddingLeft <| px 5 ]
+    css
+        [ fontSize Css.small
+        , paddingTop <| px 10
+        , paddingLeft <| px 5
+        ]
 
 
 minW : Html.Styled.Attribute msg
@@ -232,7 +268,12 @@ global =
         , G.everything [ boxSizing borderBox ]
         , body
         , G.a [ textDecoration none ]
-        , G.h1 [ fontSize <| px 24 ]
+        , G.h1
+            [ fontSize <| px 24
+            , M.withMedia
+                [ M.only M.screen [ M.maxWidth <| px 320 ] ]
+                [ fontSize <| px 18 ]
+            ]
         , G.p [ marginTop zero ]
         , G.img [ margin2 (px 20) zero, maxWidth <| px 200 ]
         , G.button [ border3 (px 2) solid (hex "#333") ]

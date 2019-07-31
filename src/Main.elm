@@ -230,6 +230,7 @@ type Msg
     | SearchGists
       -- Token
     | ChangeToken String
+    | CancelEditingToken
     | ClearToken
     | AddNewToken
     | SaveToken String
@@ -331,6 +332,11 @@ update msg model =
             , Cmd.none
             )
 
+        CancelEditingToken ->
+            ( { model | token = Empty }
+            , Cmd.none
+            )
+
         ClearToken ->
             ( { model | token = Empty }
             , saveToStorage <|
@@ -415,6 +421,11 @@ view model =
         ]
 
 
+githubGistAuthDocs : String
+githubGistAuthDocs =
+    "https://developer.github.com/v3/gists/#authentication"
+
+
 renderTokenMsg : Model -> Html Msg
 renderTokenMsg { token, gists } =
     case ( token, gists ) of
@@ -423,13 +434,11 @@ renderTokenMsg { token, gists } =
 
         ( _, Success _ ) ->
             p [ Cx.small ]
-                [ text "To see your secret Gits add a "
+                [ text "To see (your) secret Gits add a "
                 , a
-                    [ href "https://developer.github.com/v3/gists/#authentication"
-                    , target "_blank"
-                    ]
+                    [ href githubGistAuthDocs, target "_blank" ]
                     [ text "GitHub token" ]
-                , text " (no scopes needed since this only reads gists)"
+                , text " in the menu"
                 ]
 
         _ ->
@@ -441,40 +450,64 @@ renderSidebarControls model =
     div []
         [ div [ Cx.sidebarCloseBtn, onClick ToggleSidebar ] [ text "❌" ]
         , div [ Cx.sidebarContent ]
-            [ p [] [ text "GitHub Gist Token" ]
-            , case model.token of
-                Empty ->
-                    button
-                        [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
-                        [ text "Add New Token" ]
-
-                Editing token ->
-                    div []
-                        [ input
-                            [ Cx.searchInput
-                            , onInput ChangeToken
-                            , value token
-                            ]
-                            []
-                        , button
-                            [ Cx.searchBtn
-                            , type_ "button"
-                            , onClick <| SaveToken token
-                            , disabled <| token == ""
-                            ]
-                            [ text "Save" ]
-                        ]
-
-                Saved _ ->
-                    div []
-                        [ button
-                            [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
-                            [ text "Add New Token" ]
-                        , button
-                            [ Cx.searchBtn, type_ "button", onClick ClearToken ]
-                            [ text "Clear" ]
-                        ]
+            [ div [ Cx.sidebarHeader ] [ h2 [] [ text "literate-avocado" ] ]
+            , renderTokenBlock model
             ]
+        ]
+
+
+renderTokenBlock : Model -> Html Msg
+renderTokenBlock model =
+    div [ Cx.tokenBlock ]
+        [ p [ Cx.tokenBlockHeading ] [ text "GitHub Token" ]
+        , p [ Cx.tokenBlockMsg ]
+            [ text "Only required to search secret Gists. "
+            , text "No extra scopes are necessary, only read access is used. "
+            ]
+        , p [ Cx.tokenBlockMsg ]
+            [ text "Check "
+            , a [ href githubGistAuthDocs, target "_blank" ] [ text "the docs" ]
+            , text " to learn more."
+            ]
+        , case model.token of
+            Empty ->
+                button
+                    [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                    [ text "Add Token" ]
+
+            Editing token ->
+                form [ onSubmit <| SaveToken token ]
+                    [ input
+                        [ Cx.searchInput
+                        , placeholder "a8i7hov674dbq15nm09"
+                        , onInput ChangeToken
+                        , value token
+                        ]
+                        []
+                    , button
+                        [ Cx.searchBtn
+                        , type_ "submit"
+                        , onClick <| SaveToken token
+                        , disabled <| token == ""
+                        ]
+                        [ text "Save" ]
+                    , button
+                        [ Cx.searchBtn
+                        , type_ "button"
+                        , onClick <| CancelEditingToken
+                        ]
+                        [ text "Cancel" ]
+                    ]
+
+            Saved _ ->
+                div []
+                    [ button
+                        [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                        [ text "Change" ]
+                    , button
+                        [ Cx.searchBtn, type_ "button", onClick ClearToken ]
+                        [ text "Remove" ]
+                    ]
         ]
 
 
@@ -610,7 +643,7 @@ renderGists { display, showFiles, gists } =
             div [] [ text "..." ]
 
         NotAsked ->
-            text ""
+            div [ Cx.notAskedMsg ] [ text "Search GitHub Gists by username" ]
 
 
 renderGist : Display -> Bool -> Gist -> Html Msg

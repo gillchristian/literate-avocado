@@ -75,23 +75,24 @@ v1
 - [x] Have a "form" field with the WIP values (solved with the `ConfigFied` type)
 - [x] Better position of the hamburger menu
 - [x] Fix: sidebar cannot be closed on mobile
-- [ ] Better label for "Show only main Gist file" / "Show all files in Gist"
-- [ ] Sidebar Design
+- [x] Fix: prevent from adding empty token
+- [x] Better label for "Show only main Gist file" / "Show all files in Gist"
+- [x] Sidebar Design
+- [x] Somewhat mobile friendly :sweat_smile:
+- [x] UX: Initial blank screen (no user / no token) doesn't explain what to do
 - [ ] Footer -> Name & link to GitHub, Twitter, etc.
-- [ ] Mobile friendly :sweat_smile:
-- [ ] Initial blank screen (no user / no token) doesn't explain what to do
 - [ ] Fix: Add token without user :bug:
 - [ ] Fix: Reload when only token is present :bug:
-- [ ] UX: Add sticky navbar (hamburger menu shows on top of things)
 - [ ] UX: Be clear how to search, token is only for secret gists
-- [ ] UX: Token should be enough to search (since it's got your user)
-- [ ] UI: Better animation (mobile looks bad)
 
 v2
 
-- [ ] Only allow extending view (e.g. showing extra files) on list view. Keep grid as clean as possible.
+- [x] Only allow extending view (e.g. showing extra files) on list view. Keep grid as clean as possible.
+- [ ] UI: Better animation (mobile looks bad)
+- [ ] UX: Token should be enough to search (since it's got your user)
+- [ ] UX: Add sticky navbar
 - [ ] Keep "current" user in URL ? -> Migrate to [`Browser.application`](https://package.elm-lang.org/packages/elm/browser/latest/Browser#application)
-- [ ] Keep searched users in "tabs" ?
+- [ ] Keep history of users in "tabs" (and gists) ?
 - [ ] On list view show more data (creation date, description?, files in line/tree, comment count)
 - [ ] Improve the _fetch next page_ logic & state (e.g. keep track of "loading next page" -> show loding at bottom & in count)
 - [ ] Make _fetch all pages_ configurable

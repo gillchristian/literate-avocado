@@ -343,17 +343,21 @@ update msg model =
             )
 
         SaveToken token ->
-            ( { model | token = Saved token, gists = Loading }
-            , Cmd.batch
-                [ Maybe.unwrap
-                    Cmd.none
-                    (getGists (Just token) << gistsUrl)
-                    model.username
-                , saveToStorage <|
-                    persistedE
-                        { token = Just token, username = model.username }
-                ]
-            )
+            if token == "" then
+                ( model, Cmd.none )
+
+            else
+                ( { model | token = Saved token, gists = Loading }
+                , Cmd.batch
+                    [ Maybe.unwrap
+                        Cmd.none
+                        (getGists (Just token) << gistsUrl)
+                        model.username
+                    , saveToStorage <|
+                        persistedE
+                            { token = Just token, username = model.username }
+                    ]
+                )
 
         -- UI ----------------------------------------------
         ChangeDisplay display ->
@@ -456,6 +460,7 @@ renderSidebarControls model =
                             [ Cx.searchBtn
                             , type_ "button"
                             , onClick <| SaveToken token
+                            , disabled <| token == ""
                             ]
                             [ text "Save" ]
                         ]

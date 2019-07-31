@@ -392,7 +392,7 @@ view model =
         , renderTitle model
         , renderTokenMsg model.token
         , renderGists model
-        , div [ Cx.menuToggle, onClick ToggleSidebar ] [ text "☰" ]
+        , div [ Cx.sidebarOpenBtn, onClick ToggleSidebar ] [ text "☰" ]
         , sidebar model.sidebar <| renderSidebarControls model
         , showHide
             (div [ Cx.sidebarBackdrop, onClick ToggleSidebar ] [])
@@ -422,38 +422,41 @@ renderTokenMsg token =
 renderSidebarControls : Model -> Html Msg
 renderSidebarControls model =
     div []
-        [ p [] [ text "GitHub Gist Token" ]
-        , case model.token of
-            Empty ->
-                button
-                    [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
-                    [ text "Add New Token" ]
-
-            Editing token ->
-                div []
-                    [ input
-                        [ Cx.searchInput
-                        , onInput ChangeToken
-                        , value token
-                        ]
-                        []
-                    , button
-                        [ Cx.searchBtn
-                        , type_ "button"
-                        , onClick <| SaveToken token
-                        ]
-                        [ text "Save" ]
-                    ]
-
-            Saved _ ->
-                div []
-                    [ button
+        [ div [ Cx.sidebarCloseBtn, onClick ToggleSidebar ] [ text "❌" ]
+        , div [ Cx.sidebarContent ]
+            [ p [] [ text "GitHub Gist Token" ]
+            , case model.token of
+                Empty ->
+                    button
                         [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
                         [ text "Add New Token" ]
-                    , button
-                        [ Cx.searchBtn, type_ "button", onClick ClearToken ]
-                        [ text "Clear" ]
-                    ]
+
+                Editing token ->
+                    div []
+                        [ input
+                            [ Cx.searchInput
+                            , onInput ChangeToken
+                            , value token
+                            ]
+                            []
+                        , button
+                            [ Cx.searchBtn
+                            , type_ "button"
+                            , onClick <| SaveToken token
+                            ]
+                            [ text "Save" ]
+                        ]
+
+                Saved _ ->
+                    div []
+                        [ button
+                            [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                            [ text "Add New Token" ]
+                        , button
+                            [ Cx.searchBtn, type_ "button", onClick ClearToken ]
+                            [ text "Clear" ]
+                        ]
+            ]
         ]
 
 
@@ -485,7 +488,7 @@ renderTitle { username, gists } =
 
 renderControls : Model -> Html Msg
 renderControls { gists, display, showFiles, search, token } =
-    div [ Cx.search ]
+    div [ Cx.controls ]
         [ form [ onSubmit SearchGists ]
             [ input
                 [ Cx.searchInput

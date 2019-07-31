@@ -1,6 +1,7 @@
 module Cx exposing
     ( body
     , content
+    , controls
     , elmHot
     , empty
     , file
@@ -16,14 +17,15 @@ module Cx exposing
     , global
     , input
     , inputAndBtn
-    , menuToggle
     , minW
-    , search
     , searchBtn
     , searchInput
     , sidebar
     , sidebarBackdrop
+    , sidebarCloseBtn
+    , sidebarContent
     , sidebarOpen
+    , sidebarOpenBtn
     , small
     )
 
@@ -39,7 +41,7 @@ content =
     css
         [ displayFlex
         , flexDirection column
-        , padding <| px 20
+        , padding3 (px 50) (px 20) (px 20)
         ]
 
 
@@ -113,9 +115,9 @@ file =
     css [ marginTop <| px 5 ]
 
 
-search : Html.Styled.Attribute msg
-search =
-    css [ displayFlex ]
+controls : Html.Styled.Attribute msg
+controls =
+    css [ displayFlex, flexWrap wrap ]
 
 
 searchInput : Html.Styled.Attribute msg
@@ -135,18 +137,17 @@ sidebar modifier =
         , width <| px 500
         , height <| vh 100
         , maxHeight <| vh 100
+        , backgroundColor <| rgb 255 255 255
         , left zero
         , top zero
         , outline none
         , overflowX hidden
         , overflowY auto
-        , padding2 zero (px 15)
         , position fixed
         , transform <| translateX <| pct -100
         , Ts.transition <|
             [ Ts.transform3 233.0 0 <| Ts.cubicBezier 0 0 0.21 1.0 ]
         , zIndex <| int 2000
-        , backgroundColor <| rgb 255 255 255
         , modifier
         ]
 
@@ -164,22 +165,44 @@ sidebarBackdrop =
         , left zero
         , width <| vw 100
         , height <| vh 100
-
-        -- TODO: add transition to the color
         , backgroundColor <| rgba 0 0 0 0.5
         , zIndex <| int 1000
         ]
 
 
-menuToggle : Html.Styled.Attribute msg
-menuToggle =
+sidebarOpenBtn : Html.Styled.Attribute msg
+sidebarOpenBtn =
     css
         [ position fixed
-        , right <| px 10
+        , padding <| px 5
+        , backgroundColor <| hex "#fff"
+        , left <| px 15
+        , top <| px 5
+        , cursor pointer
+        , fontSize <| px 26
+        , lineHeight <| int 1
+        , zIndex <| int 2000
+        ]
+
+
+sidebarCloseBtn : Html.Styled.Attribute msg
+sidebarCloseBtn =
+    css
+        [ position absolute
+        , left <| px 20
         , top <| px 10
         , cursor pointer
-        , fontSize <| px 30
+        , fontSize <| px 26
+        , lineHeight <| int 1
         , zIndex <| int 2000
+        ]
+
+
+sidebarContent : Html.Styled.Attribute msg
+sidebarContent =
+    css
+        [ position relative
+        , padding3 (px 50) (px 15) zero
         ]
 
 
@@ -210,6 +233,7 @@ global =
         , body
         , G.a [ textDecoration none ]
         , G.h1 [ fontSize <| px 24 ]
+        , G.p [ marginTop zero ]
         , G.img [ margin2 (px 20) zero, maxWidth <| px 200 ]
         , G.button [ border3 (px 2) solid (hex "#333") ]
         , input

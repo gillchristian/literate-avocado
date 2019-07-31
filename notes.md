@@ -73,14 +73,19 @@ v1
 - [x] Save token separately from the search (what did I mean here?)
 - [x] Show a label similar to GitHub's (solve problem with layout) -> for secret ones
 - [x] Have a "form" field with the WIP values (solved with the `ConfigFied` type)
+- [x] Better position of the hamburger menu
 - [ ] Better label for "Show only main Gist file" / "Show all files in Gist"
-- [ ] Better position of the hamburger menu
 - [ ] Sidebar Design
 - [ ] Footer -> Name & link to GitHub, Twitter, etc.
 - [ ] Mobile friendly :sweat_smile:
+- [ ] Fix: sidebar cannot be closed on mobile
 - [ ] Initial blank screen (no user / no token) doesn't explain what to do
 - [ ] Fix: Add token without user :bug:
 - [ ] Fix: Reload when only token is present :bug:
+- [ ] UX: Add sticky navbar (hamburger menu shows on top of things)
+- [ ] UX: Be clear how to search, token is only for secret gists
+- [ ] UX: Token should be enough to search (since it's got your user)
+- [ ] UI: Better animation (mobile looks bad)
 
 v2
 

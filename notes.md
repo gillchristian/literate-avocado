@@ -80,14 +80,17 @@ v1
 - [x] Sidebar Design
 - [x] Somewhat mobile friendly :sweat_smile:
 - [x] UX: Initial blank screen (no user / no token) doesn't explain what to do
+- [x] Fix: Add token without user :bug:
+- [x] Fix: Reload when only token is present :bug:
+- [x] UX: Be clear how to search, token is only for secret gists
 - [ ] Footer -> Name & link to GitHub, Twitter, etc.
-- [ ] Fix: Add token without user :bug:
-- [ ] Fix: Reload when only token is present :bug:
-- [ ] UX: Be clear how to search, token is only for secret gists
 
 v2
 
 - [x] Only allow extending view (e.g. showing extra files) on list view. Keep grid as clean as possible.
+- [ ] Refactor code
+    - [ ] Update function, more predictable command chain (e.g. emit fetch/saveInStorage one, instead of fetching/savingInStorage in several ones)
+    - [ ] Styles :nauseated_face:
 - [ ] UI: Better animation (mobile looks bad)
 - [ ] UX: Token should be enough to search (since it's got your user)
 - [ ] UX: Add sticky navbar

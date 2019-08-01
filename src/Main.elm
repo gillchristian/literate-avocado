@@ -338,9 +338,18 @@ update msg model =
             )
 
         ClearToken ->
-            ( { model | token = Empty }
-            , saveToStorage <|
-                persistedE { token = Nothing, username = model.username }
+            ( { model
+                | token = Empty
+                , gists = Maybe.unwrap NotAsked (always Loading) model.username
+              }
+            , Cmd.batch
+                [ Maybe.unwrap
+                    Cmd.none
+                    (getGists Nothing << gistsUrl)
+                    model.username
+                , saveToStorage <|
+                    persistedE { token = Nothing, username = model.username }
+                ]
             )
 
         AddNewToken ->
@@ -353,7 +362,10 @@ update msg model =
                 ( model, Cmd.none )
 
             else
-                ( { model | token = Saved token, gists = Loading }
+                ( { model
+                    | token = Saved token
+                    , gists = Maybe.unwrap NotAsked (always Loading) model.username
+                  }
                 , Cmd.batch
                     [ Maybe.unwrap
                         Cmd.none
@@ -406,6 +418,14 @@ showHide onShow onHide x =
 
 view : Model -> Html Msg
 view model =
+    div [ Cx.site ]
+        [ renderContent model
+        , renderFooter
+        ]
+
+
+renderContent : Model -> Html Msg
+renderContent model =
     div [ Cx.content ]
         [ Cx.global
         , renderControls model
@@ -421,9 +441,34 @@ view model =
         ]
 
 
+renderFooter : Html Msg
+renderFooter =
+    footer []
+        [ div []
+            [ text " by "
+            , a
+                [ href "https://twitter.com/gillchristian"
+                , target "_blank"
+                ]
+                [ text "@gillchristian" ]
+            , text " <> code on "
+            , a
+                [ href "https://github.com/gillchristian/literate-avocado"
+                , target "_blank"
+                ]
+                [ text "GitHub" ]
+            ]
+        ]
+
+
 githubGistAuthDocs : String
 githubGistAuthDocs =
     "https://developer.github.com/v3/gists/#authentication"
+
+
+githubToken : String
+githubToken =
+    "https://github.com/settings/tokens"
 
 
 renderTokenMsg : Model -> Html Msg
@@ -434,11 +479,11 @@ renderTokenMsg { token, gists } =
 
         ( _, Success _ ) ->
             p [ Cx.small ]
-                [ text "To see (your) secret Gits add a "
+                [ text "Want to see your secret gists as well? Add a "
                 , a
-                    [ href githubGistAuthDocs, target "_blank" ]
+                    [ href githubToken, target "_blank" ]
                     [ text "GitHub token" ]
-                , text " in the menu"
+                , text " on the menu"
                 ]
 
         _ ->
@@ -487,7 +532,6 @@ renderTokenBlock model =
                     , button
                         [ Cx.searchBtn
                         , type_ "submit"
-                        , onClick <| SaveToken token
                         , disabled <| token == ""
                         ]
                         [ text "Save" ]

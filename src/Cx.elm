@@ -28,6 +28,7 @@ module Cx exposing
     , sidebarHeader
     , sidebarOpen
     , sidebarOpenBtn
+    , site
     , small
     , tokenBlock
     , tokenBlockHeading
@@ -42,10 +43,33 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css)
 
 
+
+{-
+   Sticky footer
+
+   <body class="site">
+     <header>…</header>
+     <main class="content">…</main>
+     <footer>…</footer>
+   </body>
+-}
+
+
+site : Html.Styled.Attribute msg
+site =
+    css
+        [ -- sticky footer: site
+          minHeight <| vh 100
+        , displayFlex
+        , flexDirection column
+        ]
+
+
 content : Html.Styled.Attribute msg
 content =
     css
-        [ displayFlex
+        [ flex <| int 1 -- sticky footer: content
+        , displayFlex
         , flexDirection column
         , padding3 (px 50) (px 20) (px 20)
         ]
@@ -53,7 +77,7 @@ content =
 
 notAskedMsg : Html.Styled.Attribute msg
 notAskedMsg =
-    css [ marginTop <| px 20 ]
+    css [ marginTop <| px 20, paddingLeft <| px 5 ]
 
 
 gists : Style -> Html.Styled.Attribute msg
@@ -247,6 +271,7 @@ small : Html.Styled.Attribute msg
 small =
     css
         [ fontSize Css.small
+        , fontStyle italic
         , paddingTop <| px 10
         , paddingLeft <| px 5
         ]
@@ -277,6 +302,7 @@ global =
         , G.p [ marginTop zero ]
         , G.img [ margin2 (px 20) zero, maxWidth <| px 200 ]
         , G.button [ border3 (px 2) solid (hex "#333") ]
+        , footer
         , input
         , inputAndBtn
         ]
@@ -324,4 +350,17 @@ inputAndBtn =
         , fontSize <| px 14
         , cursor pointer
         , disabled [ cursor notAllowed ]
+        ]
+
+
+footer : G.Snippet
+footer =
+    G.footer
+        [ displayFlex
+        , justifyContent center
+        , alignItems center
+        , flexWrap wrap
+        , paddingTop <| px 20
+        , paddingBottom <| px 20
+        , backgroundColor <| rgba 100 100 100 0.3
         ]

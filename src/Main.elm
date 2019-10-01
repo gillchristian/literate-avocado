@@ -20,6 +20,7 @@ import Html.Styled.Attributes
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (Error(..))
 import Json.Decode as D
+import Json.Decode.Extra as D
 import Json.Encode as E
 import List as List
 import Maybe as Maybe
@@ -27,6 +28,7 @@ import Maybe.Extra as Maybe
 import Platform.Cmd as Cmd
 import RemoteData as RemoteData exposing (RemoteData(..), WebData)
 import String as String
+import Time
 import Tuple exposing (first, second)
 
 
@@ -54,8 +56,8 @@ type alias Gist =
     , html_url : String
     , files : Dict String File
     , public : Bool
-    , created_at : String
-    , updated_at : String
+    , created_at : Time.Posix
+    , updated_at : Time.Posix
     , owner : User
     }
 
@@ -171,8 +173,8 @@ gistD =
         (D.field "html_url" D.string)
         (D.field "files" <| D.dict fileD)
         (D.field "public" D.bool)
-        (D.field "created_at" D.string)
-        (D.field "updated_at" D.string)
+        (D.field "created_at" D.datetime)
+        (D.field "updated_at" D.datetime)
         (D.field "owner" userD)
 
 
@@ -666,19 +668,19 @@ renderError err =
 renderGists : Model -> Html Msg
 renderGists { display, showFiles, gists } =
     let
-        styles =
+        ( styles, renderGist ) =
             case display of
                 Grid ->
-                    Cx.gists Cx.gistsGird
+                    ( Cx.gists Cx.gistsGird, renderGridGist )
 
                 List ->
-                    Cx.gists Cx.gistsList
+                    ( Cx.gists Cx.gistsList, renderListGist display showFiles )
     in
     case gists of
         Success gs ->
             div
                 [ styles ]
-                (List.map (renderGist display showFiles) gs)
+                (List.map renderGist gs)
 
         Failure err ->
             div [] [ renderError err ]
@@ -690,60 +692,154 @@ renderGists { display, showFiles, gists } =
             div [ Cx.notAskedMsg ] [ text "Search GitHub Gists by username" ]
 
 
-renderGist : Display -> Bool -> Gist -> Html Msg
-renderGist display showFiles { id, html_url, owner, files, public } =
+renderListGist : Display -> Bool -> Gist -> Html Msg
+renderListGist display showFiles gist =
     let
-        filesLs =
-            Dict.values files
+        files =
+            Dict.values gist.files
 
         -- `gistName` is also the name of the first file (unless there's none)
         gistName =
-            Maybe.unwrap id .filename <| List.head filesLs
-
-        styles =
-            case display of
-                Grid ->
-                    Cx.gistItem Cx.gistItemGrid
-
-                List ->
-                    Cx.gistItem Cx.gistItemList
-
-        fsHtml =
-            if showFiles then
-                div []
-                    << List.map renderFile
-                    << Maybe.withDefault []
-                <|
-                    List.tail filesLs
-
-            else
-                text ""
-
-        privateLabel =
-            if public then
-                text ""
-
-            else
-                span [ Cx.gistPrivateLabel ] [ text "🔒" ]
+            Maybe.unwrap gist.id .filename <| List.head files
     in
-    div [ styles ]
+    div [ Cx.gistItem Cx.gistItemList ]
         [ div [ Cx.gistHeader ]
-            [ a
+            [ renderDate gist.created_at
+            , text " --- "
+            , renderDate gist.updated_at
+            , text " --- "
+            , a
                 [ Cx.gistItemLink
-                , href html_url
+                , href gist.html_url
                 , target "_blank"
                 , title gistName
                 ]
                 [ text gistName ]
-            , privateLabel
+            , renderPrivateLabel gist.public
+            , gist.description
+                |> Maybe.filter ((/=) "")
+                |> Maybe.unwrap (text "") (\d -> text <| " --- " ++ d)
             ]
-        , fsHtml
+        , renderFiles showFiles files
         ]
+
+
+renderDate : Time.Posix -> Html Msg
+renderDate date =
+    div [ Cx.date ] [ text <| formatTime Time.utc date ]
+
+
+renderGridGist : Gist -> Html Msg
+renderGridGist gist =
+    let
+        -- `gistName` is also the name of the first file (unless there's none)
+        gistName =
+            gist.files
+                |> Dict.values
+                |> List.head
+                |> Maybe.unwrap gist.id .filename
+    in
+    div [ Cx.gistItem Cx.gistItemGrid ]
+        [ div [ Cx.gistHeader ]
+            [ a
+                [ Cx.gistItemLink
+                , href gist.html_url
+                , target "_blank"
+                , title gistName
+                ]
+                [ text gistName ]
+            , renderPrivateLabel gist.public
+            ]
+        ]
+
+
+renderPrivateLabel : Bool -> Html Msg
+renderPrivateLabel public =
+    if public then
+        text ""
+
+    else
+        span [ Cx.gistPrivateLabel ] [ text "🔒" ]
+
+
+renderFiles : Bool -> List File -> Html Msg
+renderFiles showFiles files =
+    if showFiles then
+        files
+            |> List.tail
+            |> Maybe.withDefault []
+            |> List.map renderFile
+            |> div []
+
+    else
+        text ""
 
 
 renderFile : File -> Html Msg
 renderFile file =
     div [ Cx.file ] [ text file.filename ]
+
+
+formatTime : Time.Zone -> Time.Posix -> String
+formatTime z t =
+    (Time.toYear z >> String.fromInt) t
+        ++ "-"
+        ++ (Time.toMonth z >> monthToString) t
+        ++ "-"
+        ++ (Time.toDay z >> intToString) t
+        ++ " "
+        ++ (Time.toHour z >> intToString) t
+        ++ ":"
+        ++ (Time.toMinute z >> intToString) t
+
+
+intToString : Int -> String
+intToString x =
+    if x >= 10 then
+        String.fromInt x
+
+    else
+        "0" ++ String.fromInt x
+
+
+monthToString : Time.Month -> String
+monthToString month =
+    case month of
+        Time.Jan ->
+            "01"
+
+        Time.Feb ->
+            "02"
+
+        Time.Mar ->
+            "03"
+
+        Time.Apr ->
+            "04"
+
+        Time.May ->
+            "05"
+
+        Time.Jun ->
+            "06"
+
+        Time.Jul ->
+            "07"
+
+        Time.Aug ->
+            "08"
+
+        Time.Sep ->
+            "09"
+
+        Time.Oct ->
+            "10"
+
+        Time.Nov ->
+            "11"
+
+        Time.Dec ->
+            "12"
 
 
 

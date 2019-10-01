@@ -2,6 +2,7 @@ module Cx exposing
     ( body
     , content
     , controls
+    , date
     , elmHot
     , empty
     , file
@@ -143,6 +144,11 @@ gistPrivateLabel =
         , fontSize <| px 12
         , borderRadius <| px 2
         ]
+
+
+date : Html.Styled.Attribute msg
+date =
+    css [ marginRight <| px 10 ]
 
 
 file : Html.Styled.Attribute msg

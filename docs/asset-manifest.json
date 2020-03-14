@@ -1,9 +1,13 @@
 {
-  "main.js": "/literate-avocado/static/js/main.6bfd10a2.chunk.js",
-  "main.js.map": "/literate-avocado/static/js/main.6bfd10a2.chunk.js.map",
-  "runtime~main.js": "/literate-avocado/static/js/runtime~main.125f9c64.js",
-  "runtime~main.js.map": "/literate-avocado/static/js/runtime~main.125f9c64.js.map",
-  "vendors~main.js": "/literate-avocado/static/js/vendors~main.3ca81432.chunk.js",
-  "vendors~main.js.map": "/literate-avocado/static/js/vendors~main.3ca81432.chunk.js.map",
-  "index.html": "/literate-avocado/index.html"
+  "main.js": "/literate-avocado/static/js/main.d9670d90.chunk.js",
+  "main.js.map": "/literate-avocado/static/js/main.d9670d90.chunk.js.map",
+  "runtime~main.js": "/literate-avocado/static/js/runtime~main.26f742a5.js",
+  "runtime~main.js.map": "/literate-avocado/static/js/runtime~main.26f742a5.js.map",
+  "vendors~main.js": "/literate-avocado/static/js/vendors~main.604c6712.chunk.js",
+  "vendors~main.js.map": "/literate-avocado/static/js/vendors~main.604c6712.chunk.js.map",
+  "./service-worker.js": "/literate-avocado/./service-worker.js",
+  "favicon.ico": "/literate-avocado/favicon.ico",
+  "index.html": "/literate-avocado/index.html",
+  "manifest.json": "/literate-avocado/manifest.json",
+  "precache-manifest.5467ffd042cfd20dde7a285a64894a54.js": "/literate-avocado/precache-manifest.5467ffd042cfd20dde7a285a64894a54.js"
 }

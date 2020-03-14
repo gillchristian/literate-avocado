@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/literate-avocado/precache-manifest.5467ffd042cfd20dde7a285a64894a54.js"
+  "/literate-avocado/precache-manifest.1bda3c3f598b8ed0d268b68acaacb40a.js"
 );
 
 workbox.core.skipWaiting();

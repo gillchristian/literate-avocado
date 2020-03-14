@@ -83,20 +83,24 @@ v1
 - [x] Fix: Add token without user :bug:
 - [x] Fix: Reload when only token is present :bug:
 - [x] UX: Be clear how to search, token is only for secret gists
-- [ ] Footer -> Name & link to GitHub, Twitter, etc.
+- [x] Footer -> Name & link to GitHub, Twitter, etc.
 
 v2
 
 - [x] Only allow extending view (e.g. showing extra files) on list view. Keep grid as clean as possible.
+- [x] UX: Add sticky navbar
+- [x] Tags: parse and render on item
+- [x] Tags: list all
+- [ ] Tags: (multiple) filter
+- [ ] Tags: count
 - [ ] Refactor code
     - [ ] Update function, more predictable command chain (e.g. emit fetch/saveInStorage one, instead of fetching/savingInStorage in several ones)
-    - [ ] Styles :nauseated_face:
+    - [x] Styles :nauseated_face:
 - [ ] UI: Better animation (mobile looks bad)
 - [ ] UX: Token should be enough to search (since it's got your user)
-- [ ] UX: Add sticky navbar
 - [ ] Keep "current" user in URL ? -> Migrate to [`Browser.application`](https://package.elm-lang.org/packages/elm/browser/latest/Browser#application)
-- [ ] Keep history of users in "tabs" (and gists) ?
 - [ ] On list view show more data (creation date, description?, files in line/tree, comment count)
 - [ ] Improve the _fetch next page_ logic & state (e.g. keep track of "loading next page" -> show loding at bottom & in count)
 - [ ] Make _fetch all pages_ configurable
+- [ ] Keep history of users in "tabs" (and gists) ?
 - [ ] Keep searched users in "tabs" ?

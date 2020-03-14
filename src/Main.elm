@@ -98,8 +98,14 @@ type alias Token =
     ConfigField String
 
 
+type alias Gists =
+    { items : List Gist
+    , tags : Set String
+    }
+
+
 type alias Model =
-    { gists : WebData (List Gist)
+    { gists : WebData Gists
     , display : Display
     , showFiles : Bool
     , username : Maybe String
@@ -387,23 +393,45 @@ parseTags gist =
     }
 
 
+mergeNewGists : Gists -> ( List RawGist, a ) -> Gists
+mergeNewGists { items, tags } ( gists, _ ) =
+    let
+        newItems =
+            List.map parseTags gists
+
+        newTags =
+            newItems
+                |> List.concatMap (Set.toList << .tags)
+                |> Set.fromList
+                |> Set.union tags
+    in
+    Gists (items ++ newItems) newTags
+
+
+toSucced : a -> RemoteData e a -> RemoteData e a
+toSucced a remoteData =
+    remoteData
+        |> RemoteData.withDefault a
+        |> RemoteData.succeed
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotGists result ->
             let
-                appendNewGists =
-                    (++) <| RemoteData.withDefault [] model.gists
+                existingGists =
+                    toSucced { items = [], tags = Set.empty } model.gists
 
                 gists =
-                    RemoteData.map (first >> List.map parseTags >> appendNewGists) result
+                    RemoteData.succeed mergeNewGists
+                        |> RemoteData.andMap existingGists
+                        |> RemoteData.andMap result
             in
             ( { model | gists = gists, search = "" }
-            , Maybe.unwrap
-                Cmd.none
-                (getGists <| ConfigField.toMaybe model.token)
-              <|
-                RemoteData.unwrap Nothing (nextUrl << second) result
+            , result
+                |> RemoteData.unwrap Nothing (nextUrl << second)
+                |> Maybe.unwrap Cmd.none (getGists <| ConfigField.toMaybe model.token)
             )
 
         LoadFromStorage { username, token } ->
@@ -420,22 +448,23 @@ update msg model =
             ( { model | search = name }, Cmd.none )
 
         SearchGists ->
-            if model.search == "" then
-                ( model, Cmd.none )
+            case model.search of
+                "" ->
+                    ( model, Cmd.none )
 
-            else
-                ( { model | gists = Loading, username = Just model.search }
-                , Cmd.batch
-                    [ getGists
-                        (ConfigField.toMaybe model.token)
-                        (gistsUrl model.search)
-                    , saveToStorage <|
-                        persistedE
-                            { token = ConfigField.toMaybe model.token
-                            , username = Just model.search
-                            }
-                    ]
-                )
+                search ->
+                    ( { model | gists = Loading, username = Just search }
+                    , Cmd.batch
+                        [ getGists
+                            (ConfigField.toMaybe model.token)
+                            (gistsUrl search)
+                        , saveToStorage <|
+                            persistedE
+                                { token = ConfigField.toMaybe model.token
+                                , username = Just search
+                                }
+                        ]
+                    )
 
         -- Token
         ChangeToken token ->
@@ -684,6 +713,7 @@ renderTitle { username, gists } =
                         << (\s -> [ text <| " (" ++ s ++ ")" ])
                         << String.fromInt
                         << List.length
+                        << .items
                     )
                     gists
                 ]
@@ -777,19 +807,20 @@ renderError err =
 renderGists : Model -> Html Msg
 renderGists { display, showFiles, gists } =
     let
-        ( styles, renderGist ) =
+        ( styles, renderGist, renderTags ) =
             case display of
                 Grid ->
-                    ( Cx.gists Cx.gistsGird, renderGridGist )
+                    ( Cx.gists Cx.gistsGird, renderGridGist, always <| text "" )
 
                 List ->
-                    ( Cx.gists Cx.gistsList, renderListGist display showFiles )
+                    ( Cx.gists Cx.gistsList
+                    , renderListGist display showFiles
+                    , div [ Cx.tags ] << List.map renderTag << Set.toList
+                    )
     in
     case gists of
-        Success gs ->
-            div
-                [ styles ]
-                (List.map renderGist gs)
+        Success { tags, items } ->
+            div [ styles ] <| renderTags tags :: List.map renderGist items
 
         Failure err ->
             div [] [ renderError err ]

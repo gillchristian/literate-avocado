@@ -2,7 +2,6 @@ module Cx exposing
     ( body
     , content
     , controls
-    , date
     , elmHot
     , empty
     , file
@@ -11,6 +10,7 @@ module Cx exposing
     , gistItemGrid
     , gistItemLink
     , gistItemList
+    , gistItemSection
     , gistPrivateLabel
     , gists
     , gistsGird
@@ -31,6 +31,8 @@ module Cx exposing
     , sidebarOpenBtn
     , site
     , small
+    , tag
+    , tags
     , tokenBlock
     , tokenBlockHeading
     , tokenBlockMsg
@@ -120,7 +122,7 @@ gistItemGrid =
 
 gistItemList : Style
 gistItemList =
-    batch [ padding4 (px 20) zero zero zero ]
+    batch [ padding4 (px 30) zero zero zero ]
 
 
 gistItemLink : Html.Styled.Attribute msg
@@ -146,9 +148,28 @@ gistPrivateLabel =
         ]
 
 
-date : Html.Styled.Attribute msg
-date =
+gistItemSection : Html.Styled.Attribute msg
+gistItemSection =
     css [ marginRight <| px 10 ]
+
+
+tag : Html.Styled.Attribute msg
+tag =
+    css
+        [ cursor pointer
+        , marginRight <| px 9
+        , padding2 (px 1) (px 3)
+        , border3 (px 1) solid (hex "#333")
+        , fontSize <| px 12
+        ]
+
+
+tags : Html.Styled.Attribute msg
+tags =
+    css
+        [ marginTop <| px 6
+        , marginBottom <| px 6
+        ]
 
 
 file : Html.Styled.Attribute msg

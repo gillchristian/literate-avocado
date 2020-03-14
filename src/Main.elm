@@ -1,4 +1,4 @@
-port module Main exposing (main)
+port module Main exposing (andMap, main)
 
 import Browser
 import ConfigField exposing (ConfigField(..))
@@ -25,9 +25,12 @@ import Json.Encode as E
 import List as List
 import Maybe as Maybe
 import Maybe.Extra as Maybe
+import Parser as P exposing ((|.), (|=))
 import Platform.Cmd as Cmd
 import RemoteData as RemoteData exposing (RemoteData(..), WebData)
-import String as String
+import Result
+import Set exposing (Set)
+import String
 import Time
 import Tuple exposing (first, second)
 
@@ -50,6 +53,18 @@ type alias File =
     }
 
 
+type alias RawGist =
+    { id : String
+    , description : Maybe String
+    , html_url : String
+    , files : Dict String File
+    , public : Bool
+    , created_at : Time.Posix
+    , updated_at : Time.Posix
+    , owner : User
+    }
+
+
 type alias Gist =
     { id : String
     , description : Maybe String
@@ -59,6 +74,7 @@ type alias Gist =
     , created_at : Time.Posix
     , updated_at : Time.Posix
     , owner : User
+    , tags : Set String
     }
 
 
@@ -95,7 +111,7 @@ type alias Model =
 
 authHeader : Maybe String -> Maybe Http.Header
 authHeader =
-    Maybe.map (Http.header "Authorization" << (\t -> "token " ++ t))
+    Maybe.map (Http.header "Authorization" << (++) "token ")
 
 
 type alias Headers =
@@ -162,43 +178,112 @@ init =
 
 
 
+---- -> Parsing -> ----
+
+
+tagsP : P.Parser (List String)
+tagsP =
+    P.succeed identity
+        |. P.chompWhile ((/=) '[')
+        |= tagsListP
+
+
+tagsListP : P.Parser (List String)
+tagsListP =
+    P.sequence
+        { start = "["
+        , separator = ","
+        , end = "]"
+        , spaces = P.spaces
+        , item = tagP
+        , trailing = P.Optional
+        }
+
+
+tagP : P.Parser String
+tagP =
+    P.variable
+        { start = Char.isLower
+        , inner = \c -> Char.isAlphaNum c || c == '_' || c == '-'
+        , reserved = Set.empty
+        }
+
+
+{-| Cleans up the description by removing the tags list (all what's inside `[]`).
+
+    "Some text [tag, tag] and more text" -> "Some text and more text"
+
+-}
+descriptionP : P.Parser String
+descriptionP =
+    P.map String.trim <|
+        P.succeed (\left right -> left ++ " " ++ right)
+            |= (P.getChompedString <| P.chompWhile ((/=) '['))
+            |. P.spaces
+            |. P.chompWhile ((/=) ']')
+            |. P.chompIf ((==) ']')
+            |. P.spaces
+            |= (P.getChompedString <| P.chompWhile (always True))
+
+
+
 ---- -> JSON -> ----
 
 
-gistD : D.Decoder Gist
+{-| Poor's man applicative:
+
+    f : A -> B -> C
+
+    deoderA : Decoder A
+
+    deoderB : Decoder B
+
+    c : Decoder C
+    c =
+        D.succeed f
+            |> andMap deoderA
+            |> andMap deoderB
+
+-}
+andMap : D.Decoder a -> D.Decoder (a -> b) -> D.Decoder b
+andMap =
+    D.map2 (|>)
+
+
+gistD : D.Decoder RawGist
 gistD =
-    D.map8 Gist
-        (D.field "id" D.string)
-        (D.field "description" <| D.nullable D.string)
-        (D.field "html_url" D.string)
-        (D.field "files" <| D.dict fileD)
-        (D.field "public" D.bool)
-        (D.field "created_at" D.datetime)
-        (D.field "updated_at" D.datetime)
-        (D.field "owner" userD)
+    D.succeed RawGist
+        |> andMap (D.field "id" D.string)
+        |> andMap (D.field "description" <| D.nullable D.string)
+        |> andMap (D.field "html_url" D.string)
+        |> andMap (D.field "files" <| D.dict fileD)
+        |> andMap (D.field "public" D.bool)
+        |> andMap (D.field "created_at" D.datetime)
+        |> andMap (D.field "updated_at" D.datetime)
+        |> andMap (D.field "owner" userD)
 
 
 userD : D.Decoder User
 userD =
-    D.map4 User
-        (D.field "id" D.int)
-        (D.field "login" D.string)
-        (D.field "html_url" D.string)
-        (D.field "avatar_url" D.string)
+    D.succeed User
+        |> andMap (D.field "id" D.int)
+        |> andMap (D.field "login" D.string)
+        |> andMap (D.field "html_url" D.string)
+        |> andMap (D.field "avatar_url" D.string)
 
 
 fileD : D.Decoder File
 fileD =
-    D.map2 File
-        (D.field "filename" D.string)
-        (D.field "language" <| D.nullable D.string)
+    D.succeed File
+        |> andMap (D.field "filename" D.string)
+        |> andMap (D.field "language" <| D.nullable D.string)
 
 
 persistedD : D.Decoder PersistedConfig
 persistedD =
-    D.map2 PersistedConfig
-        (D.field "username" <| D.nullable D.string)
-        (D.field "token" <| D.nullable D.string)
+    D.succeed PersistedConfig
+        |> andMap (D.field "username" <| D.nullable D.string)
+        |> andMap (D.field "token" <| D.nullable D.string)
 
 
 persistedE : PersistedConfig -> E.Value
@@ -225,7 +310,7 @@ decodePersitedConfig =
 
 
 type Msg
-    = GotGists (WebData ( List Gist, Headers ))
+    = GotGists (WebData ( List RawGist, Headers ))
     | LoadFromStorage PersistedConfig
       -- Search
     | ChangeSearch String
@@ -243,7 +328,7 @@ type Msg
 
 
 {-| nextUrl parses the "Link" header from GitHub's API to get the next url.
-Docs: [developer.github.com/v3/gists](https://developer.github.com/v3/gists)
+Docs: [developer.github.com/v3/gists](https://developer.github.com/v3/gists).
 
 Transforms this:
 
@@ -278,6 +363,30 @@ hasNext =
     String.contains "rel=\"next\""
 
 
+parseTags : RawGist -> Gist
+parseTags gist =
+    let
+        tags =
+            gist.description
+                |> Maybe.andThen (P.run tagsP >> Result.toMaybe)
+                |> Maybe.withDefault []
+                |> Set.fromList
+
+        description =
+            Maybe.andThen (P.run descriptionP >> Result.toMaybe) gist.description
+    in
+    { id = gist.id
+    , description = description
+    , html_url = gist.html_url
+    , files = gist.files
+    , public = gist.public
+    , created_at = gist.created_at
+    , updated_at = gist.updated_at
+    , owner = gist.owner
+    , tags = tags
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -287,7 +396,7 @@ update msg model =
                     (++) <| RemoteData.withDefault [] model.gists
 
                 gists =
-                    RemoteData.map (first >> appendNewGists) result
+                    RemoteData.map (first >> List.map parseTags >> appendNewGists) result
             in
             ( { model | gists = gists, search = "" }
             , Maybe.unwrap
@@ -704,29 +813,34 @@ renderListGist display showFiles gist =
     in
     div [ Cx.gistItem Cx.gistItemList ]
         [ div [ Cx.gistHeader ]
-            [ renderDate gist.created_at
-            , text " --- "
-            , renderDate gist.updated_at
-            , text " --- "
-            , a
-                [ Cx.gistItemLink
-                , href gist.html_url
-                , target "_blank"
-                , title gistName
+            [ div [ Cx.gistItemSection ]
+                [ text <| formatTime Time.utc gist.updated_at ]
+            , div [ Cx.gistItemSection ] [ text "|" ]
+            , div [ Cx.gistItemSection ]
+                [ a
+                    [ Cx.gistItemLink
+                    , href gist.html_url
+                    , target "_blank"
+                    , title gistName
+                    ]
+                    [ renderPrivateLabel gist.public, text gistName ]
                 ]
-                [ text gistName ]
-            , renderPrivateLabel gist.public
-            , gist.description
-                |> Maybe.filter ((/=) "")
-                |> Maybe.unwrap (text "") (\d -> text <| " --- " ++ d)
             ]
+        , div []
+            [ gist.description
+                |> Maybe.filter ((/=) "")
+                |> Maybe.unwrap (text "") text
+            ]
+        , Set.toList gist.tags
+            |> List.map renderTag
+            |> div [ Cx.tags ]
         , renderFiles showFiles files
         ]
 
 
-renderDate : Time.Posix -> Html Msg
-renderDate date =
-    div [ Cx.date ] [ text <| formatTime Time.utc date ]
+renderTag : String -> Html Msg
+renderTag tagName =
+    a [ Cx.tag ] [ text tagName ]
 
 
 renderGridGist : Gist -> Html Msg
@@ -766,8 +880,6 @@ renderFiles : Bool -> List File -> Html Msg
 renderFiles showFiles files =
     if showFiles then
         files
-            |> List.tail
-            |> Maybe.withDefault []
             |> List.map renderFile
             |> div []
 

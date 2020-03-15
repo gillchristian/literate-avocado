@@ -1,5 +1,7 @@
 module Cx exposing
     ( body
+    , button
+    , closeBtn
     , content
     , controls
     , elmHot
@@ -17,11 +19,7 @@ module Cx exposing
     , gistsList
     , global
     , input
-    , inputAndBtn
-    , minW
     , notAskedMsg
-    , searchBtn
-    , searchInput
     , sidebar
     , sidebarBackdrop
     , sidebarCloseBtn
@@ -32,10 +30,12 @@ module Cx exposing
     , site
     , small
     , tag
+    , tagActive
     , tags
     , tokenBlock
     , tokenBlockHeading
     , tokenBlockMsg
+    , wideBtn
     )
 
 import Css exposing (..)
@@ -153,21 +153,38 @@ gistItemSection =
     css [ marginRight <| px 10 ]
 
 
-tag : Html.Styled.Attribute msg
-tag =
-    css
+tagBase : Style
+tagBase =
+    batch
         [ cursor pointer
-        , marginRight <| px 9
         , padding2 (px 1) (px 3)
+        , marginBottom <| px 10
+        , marginRight <| px 10
         , border3 (px 1) solid (hex "#333")
         , fontSize <| px 12
         ]
 
 
+tagActive : Html.Styled.Attribute msg
+tagActive =
+    css
+        [ tagBase
+        , color <| hex "#eee"
+        , backgroundColor <| hex "#666"
+        ]
+
+
+tag : Html.Styled.Attribute msg
+tag =
+    css [ tagBase ]
+
+
 tags : Html.Styled.Attribute msg
 tags =
     css
-        [ marginTop <| px 6
+        [ displayFlex
+        , flexWrap wrap
+        , marginTop <| px 6
         , marginBottom <| px 6
         ]
 
@@ -180,16 +197,6 @@ file =
 controls : Html.Styled.Attribute msg
 controls =
     css [ displayFlex, flexWrap wrap ]
-
-
-searchInput : Html.Styled.Attribute msg
-searchInput =
-    css []
-
-
-searchBtn : Html.Styled.Attribute msg
-searchBtn =
-    css []
 
 
 sidebar : Style -> Html.Styled.Attribute msg
@@ -304,9 +311,57 @@ small =
         ]
 
 
-minW : Html.Styled.Attribute msg
-minW =
-    css [ minWidth <| px 120 ]
+inputAndBtn : Style
+inputAndBtn =
+    batch
+        [ backgroundColor transparent
+        , outline none
+        , margin <| px 5
+        , padding <| px 5
+        , fontSize <| px 14
+        , cursor pointer
+        , disabled [ cursor notAllowed ]
+        ]
+
+
+mkButton : Style -> Html.Styled.Attribute msg
+mkButton modifier =
+    css
+        [ inputAndBtn
+        , border3 (px 2) solid (hex "#333")
+        , modifier
+        ]
+
+
+button : Html.Styled.Attribute msg
+button =
+    mkButton empty
+
+
+wideBtn : Html.Styled.Attribute msg
+wideBtn =
+    mkButton <| batch [ minWidth <| px 120 ]
+
+
+closeBtn : Html.Styled.Attribute msg
+closeBtn =
+    css
+        [ backgroundColor transparent
+        , outline none
+        , marginBottom <| px 5
+        , padding3 (px 1) (px 5) (px 2)
+        , cursor pointer
+        , border3 (px 2) solid (hex "#333")
+        ]
+
+
+input : Html.Styled.Attribute msg
+input =
+    css
+        [ inputAndBtn
+        , border zero
+        , borderBottom3 (px 2) solid (hex "#333")
+        ]
 
 
 
@@ -328,10 +383,7 @@ global =
             ]
         , G.p [ marginTop zero ]
         , G.img [ margin2 (px 20) zero, maxWidth <| px 200 ]
-        , G.button [ border3 (px 2) solid (hex "#333") ]
         , footer
-        , input
-        , inputAndBtn
         ]
 
 
@@ -356,27 +408,6 @@ body =
         , color <| hex "#293c4b"
         , fontFamilies [ "Menlo", "Consolas", .value monospace ]
         , property "-webkit-font-smoothing" "antialiased"
-        ]
-
-
-input : G.Snippet
-input =
-    G.input
-        [ border zero
-        , borderBottom3 (px 2) solid (hex "#333")
-        ]
-
-
-inputAndBtn : G.Snippet
-inputAndBtn =
-    G.each [ G.input, G.button ]
-        [ backgroundColor transparent
-        , outline none
-        , margin <| px 5
-        , padding <| px 5
-        , fontSize <| px 14
-        , cursor pointer
-        , disabled [ cursor notAllowed ]
         ]
 
 

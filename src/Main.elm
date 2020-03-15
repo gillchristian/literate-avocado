@@ -25,6 +25,10 @@ import Json.Encode as E
 import List as List
 import Maybe as Maybe
 import Maybe.Extra as Maybe
+import Monocle.Compose as Compose
+import Monocle.Lens as Lens exposing (Lens)
+import Monocle.Optional as Optional exposing (Optional)
+import Monocle.Prism as Prism exposing (Prism)
 import Parser as P exposing ((|.), (|=))
 import Platform.Cmd as Cmd
 import RemoteData as RemoteData exposing (RemoteData(..), WebData)
@@ -98,9 +102,14 @@ type alias Token =
     ConfigField String
 
 
+type alias Filtered =
+    ( String, List Gist )
+
+
 type alias Gists =
     { items : List Gist
     , tags : Set String
+    , filtered : Maybe Filtered
     }
 
 
@@ -113,6 +122,54 @@ type alias Model =
     , search : String
     , sidebar : Visible
     }
+
+
+gistsLens : Lens Model (WebData Gists)
+gistsLens =
+    let
+        set gists model =
+            { model | gists = gists }
+    in
+    Lens .gists set
+
+
+itemsLens : Lens Gists (List Gist)
+itemsLens =
+    let
+        set items gists =
+            { gists | items = items }
+    in
+    Lens .items set
+
+
+tagsLens : Lens Gists (Set String)
+tagsLens =
+    let
+        set tags gists =
+            { gists | tags = tags }
+    in
+    Lens .tags set
+
+
+filteredLens : Lens Gists (Maybe Filtered)
+filteredLens =
+    let
+        set filtered gists =
+            { gists | filtered = filtered }
+    in
+    Lens .filtered set
+
+
+modelToGists : Optional Model Gists
+modelToGists =
+    gistsLens
+        |> Compose.lensWithPrism RemoteData.prism
+
+
+modelToGistsFiltered : Optional Model (Maybe Filtered)
+modelToGistsFiltered =
+    modelToGists
+        |> Compose.optionalWithLens filteredLens
 
 
 authHeader : Maybe String -> Maybe Http.Header
@@ -318,6 +375,9 @@ decodePersitedConfig =
 type Msg
     = GotGists (WebData ( List RawGist, Headers ))
     | LoadFromStorage PersistedConfig
+      -- Filtering
+    | ClearFilters
+    | FilterByTag String
       -- Search
     | ChangeSearch String
     | SearchGists
@@ -394,18 +454,31 @@ parseTags gist =
 
 
 mergeNewGists : Gists -> ( List RawGist, a ) -> Gists
-mergeNewGists { items, tags } ( gists, _ ) =
+mergeNewGists existingGists ( newGists, _ ) =
     let
         newItems =
-            List.map parseTags gists
+            List.map parseTags newGists
 
         newTags =
             newItems
                 |> List.concatMap (Set.toList << .tags)
                 |> Set.fromList
-                |> Set.union tags
+                |> Set.union existingGists.tags
     in
-    Gists (items ++ newItems) newTags
+    { existingGists | items = existingGists.items ++ newItems, tags = newTags }
+
+
+filterByTag : String -> Gists -> Gists
+filterByTag tagToFilter gists =
+    if Set.member tagToFilter gists.tags then
+        let
+            tags =
+                List.filter (.tags >> Set.member tagToFilter) gists.items
+        in
+        filteredLens.set (Just ( tagToFilter, tags )) gists
+
+    else
+        gists
 
 
 toSucced : a -> RemoteData e a -> RemoteData e a
@@ -415,13 +488,21 @@ toSucced a remoteData =
         |> RemoteData.succeed
 
 
+initialGists : Gists
+initialGists =
+    { items = []
+    , tags = Set.empty
+    , filtered = Nothing
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotGists result ->
             let
                 existingGists =
-                    toSucced { items = [], tags = Set.empty } model.gists
+                    toSucced initialGists model.gists
 
                 gists =
                     RemoteData.succeed mergeNewGists
@@ -441,6 +522,17 @@ update msg model =
                 , gists = Maybe.unwrap NotAsked (always Loading) username
               }
             , Maybe.unwrap Cmd.none (getGists token << gistsUrl) username
+            )
+
+        -- Filtering
+        ClearFilters ->
+            ( modelToGistsFiltered.set Nothing model
+            , Cmd.none
+            )
+
+        FilterByTag tagToFilter ->
+            ( Optional.modify modelToGists (filterByTag tagToFilter) model
+            , Cmd.none
             )
 
         -- Search
@@ -657,26 +749,26 @@ renderTokenBlock model =
         , case model.token of
             Empty ->
                 button
-                    [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                    [ Cx.button, type_ "button", onClick AddNewToken ]
                     [ text "Add Token" ]
 
             Editing token ->
                 form [ onSubmit <| SaveToken token ]
                     [ input
-                        [ Cx.searchInput
+                        [ Cx.input
                         , placeholder "a8i7hov674dbq15nm09"
                         , onInput ChangeToken
                         , value token
                         ]
                         []
                     , button
-                        [ Cx.searchBtn
+                        [ Cx.button
                         , type_ "submit"
                         , disabled <| token == ""
                         ]
                         [ text "Save" ]
                     , button
-                        [ Cx.searchBtn
+                        [ Cx.button
                         , type_ "button"
                         , onClick <| CancelEditingToken
                         ]
@@ -686,10 +778,10 @@ renderTokenBlock model =
             Saved _ ->
                 div []
                     [ button
-                        [ Cx.searchBtn, type_ "button", onClick AddNewToken ]
+                        [ Cx.button, type_ "button", onClick AddNewToken ]
                         [ text "Change" ]
                     , button
-                        [ Cx.searchBtn, type_ "button", onClick ClearToken ]
+                        [ Cx.button, type_ "button", onClick ClearToken ]
                         [ text "Remove" ]
                     ]
         ]
@@ -727,7 +819,7 @@ renderControls model =
     div [ Cx.controls ]
         [ form [ onSubmit SearchGists ]
             [ input
-                [ Cx.searchInput
+                [ Cx.input
                 , placeholder "GitHub username"
                 , onInput ChangeSearch
                 , value model.search
@@ -735,7 +827,7 @@ renderControls model =
                 ]
                 []
             , button
-                [ Cx.searchBtn, disabled <| model.search == "", type_ "submit" ]
+                [ Cx.button, disabled <| model.search == "", type_ "submit" ]
                 [ text "Search" ]
             ]
         , RemoteData.isSuccess model.gists
@@ -756,7 +848,7 @@ renderToggleDisplayBtn display disable =
                 List ->
                     ( ChangeDisplay Grid, "☰" )
     in
-    button [ onClick msg, disabled disable ] [ text label ]
+    button [ Cx.button, onClick msg, disabled disable ] [ text label ]
 
 
 renderToggleFiles : Model -> Html Msg
@@ -775,7 +867,7 @@ renderToggleFiles { showFiles, gists, display } =
                         "All files"
             in
             button
-                [ Cx.minW
+                [ Cx.wideBtn
                 , onClick ToggleFiles
                 , RemoteData.isSuccess gists |> not |> disabled
                 ]
@@ -804,23 +896,41 @@ renderError err =
             p [] [ text <| "BadBody: " ++ msg ]
 
 
+renderTags : Maybe Filtered -> Set String -> Html Msg
+renderTags maybeFiltered tags =
+    case maybeFiltered of
+        Just ( activeTag, _ ) ->
+            (List.map (renderTagActive <| (==) activeTag) <| Set.toList tags)
+                ++ [ button [ Cx.closeBtn, onClick ClearFilters ] [ text "clear" ] ]
+                |> div [ Cx.tags ]
+
+        Nothing ->
+            div [ Cx.tags ] <| List.map renderTag <| Set.toList tags
+
+
 renderGists : Model -> Html Msg
 renderGists { display, showFiles, gists } =
     let
-        ( styles, renderGist, renderTags ) =
+        ( styles, renderGist ) =
             case display of
                 Grid ->
-                    ( Cx.gists Cx.gistsGird, renderGridGist, always <| text "" )
+                    ( Cx.gists Cx.gistsGird, renderGridGist )
 
                 List ->
                     ( Cx.gists Cx.gistsList
                     , renderListGist display showFiles
-                    , div [ Cx.tags ] << List.map renderTag << Set.toList
                     )
     in
     case gists of
-        Success { tags, items } ->
-            div [ styles ] <| renderTags tags :: List.map renderGist items
+        Success { filtered, tags, items } ->
+            div []
+                [ renderTags filtered tags
+                , div [ styles ] <|
+                    Maybe.unpack
+                        (\_ -> List.map renderGist items)
+                        (List.map renderGist << second)
+                        filtered
+                ]
 
         Failure err ->
             div [] [ renderError err ]
@@ -871,7 +981,16 @@ renderListGist display showFiles gist =
 
 renderTag : String -> Html Msg
 renderTag tagName =
-    a [ Cx.tag ] [ text tagName ]
+    a [ Cx.tag, onClick <| FilterByTag tagName ] [ text tagName ]
+
+
+renderTagActive : (String -> Bool) -> String -> Html Msg
+renderTagActive isActive tagName =
+    if isActive tagName then
+        a [ Cx.tagActive, onClick <| FilterByTag tagName ] [ text tagName ]
+
+    else
+        renderTag tagName
 
 
 renderGridGist : Gist -> Html Msg

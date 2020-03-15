@@ -4,7 +4,7 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/literate-avocado/favicon.ico"
   },
   {
-    "revision": "ab6cba3cafaca89e63df94b2a699b8ea",
+    "revision": "8bab477d07a52dcd12b292e787db5525",
     "url": "/literate-avocado/index.html"
   },
   {
@@ -12,8 +12,8 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/literate-avocado/manifest.json"
   },
   {
-    "revision": "1994feaed3a21c1951cf",
-    "url": "/literate-avocado/static/js/main.1994feae.chunk.js"
+    "revision": "91a7059c51c6f4379a9a",
+    "url": "/literate-avocado/static/js/main.91a7059c.chunk.js"
   },
   {
     "revision": "26f742a5647b94f72c11",
